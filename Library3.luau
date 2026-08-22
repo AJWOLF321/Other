@@ -2355,38 +2355,14 @@ do
         });
 
         local function RecalculateListPosition()
-            if not DropdownOuter or not DropdownOuter.Parent then return end
             local absPos = DropdownOuter.AbsolutePosition;
             local absSize = DropdownOuter.AbsoluteSize;
             local listSizeY = ListOuter.AbsoluteSize.Y;
             local screenY = ScreenGui.AbsoluteSize.Y;
             
-            -- If Dropdown is open and scrolled out of view in its ScrollingFrame, close it
-            if ListOuter.Visible then
-                local parentSide = DropdownOuter:FindFirstAncestorWhichIsA("ScrollingFrame")
-                if parentSide then
-                    local sidePos = parentSide.AbsolutePosition
-                    local sideSize = parentSide.AbsoluteSize
-                    if (absPos.Y + absSize.Y < sidePos.Y) or (absPos.Y > sidePos.Y + sideSize.Y) then
-                        if Dropdown.CloseDropdown then
-                            Dropdown:CloseDropdown()
-                        else
-                            ListOuter.Visible = false
-                        end
-                        return
-                    end
-                end
-            end
-            
-            local windowFrame = Library.MainWindow or ScreenGui:FindFirstChildWhichIsA("Frame")
-            local windowBottom = if windowFrame then (windowFrame.AbsolutePosition.Y + windowFrame.AbsoluteSize.Y) else (screenY - 10)
-            local windowTop = if windowFrame then (windowFrame.AbsolutePosition.Y + 25) else 10
-            
             local targetY = absPos.Y + DropdownOuter.Size.Y.Offset + 1;
-            if (targetY + listSizeY > windowBottom - 4) or (targetY + listSizeY > screenY - 10) then
-                if (absPos.Y - listSizeY - 1 >= windowTop) then
-                    targetY = absPos.Y - listSizeY - 1;
-                end
+            if (targetY + listSizeY > screenY - 10) and (absPos.Y - listSizeY - 1 > 10) then
+                targetY = absPos.Y - listSizeY - 1;
             end
             
             ListOuter.Position = UDim2.fromOffset(absPos.X, targetY);
@@ -2602,15 +2578,13 @@ do
         end;
 
         local renderConn;
-        local scrollConn;
-        local wheelConn;
         function Dropdown:OpenDropdown()
             RecalculateListPosition();
             ListOuter.Visible = true;
             Library.OpenedFrames[ListOuter] = true;
             DropdownArrow.Rotation = 180;
             
-            if renderConn then renderConn:Disconnect() renderConn = nil end
+            if renderConn then renderConn:Disconnect() end
             renderConn = game:GetService("RunService").RenderStepped:Connect(function()
                 if not ListOuter.Visible or not DropdownOuter.Parent then
                     if renderConn then renderConn:Disconnect() renderConn = nil end
@@ -2618,27 +2592,10 @@ do
                 end
                 RecalculateListPosition();
             end);
-
-            local parentSide = DropdownOuter:FindFirstAncestorWhichIsA("ScrollingFrame")
-            if scrollConn then scrollConn:Disconnect() scrollConn = nil end
-            if parentSide then
-                scrollConn = parentSide:GetPropertyChangedSignal('CanvasPosition'):Connect(function()
-                    Dropdown:CloseDropdown();
-                end);
-            end
-
-            if wheelConn then wheelConn:Disconnect() wheelConn = nil end
-            wheelConn = game:GetService("UserInputService").InputChanged:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseWheel then
-                    Dropdown:CloseDropdown();
-                end
-            end);
         end;
 
         function Dropdown:CloseDropdown()
             if renderConn then renderConn:Disconnect() renderConn = nil end
-            if scrollConn then scrollConn:Disconnect() scrollConn = nil end
-            if wheelConn then wheelConn:Disconnect() wheelConn = nil end
             ListOuter.Visible = false;
             Library.OpenedFrames[ListOuter] = nil;
             DropdownArrow.Rotation = 0;
@@ -3116,7 +3073,6 @@ function Library:CreateWindow(...)
         Parent = ScreenGui;
     });
 
-    Library.MainWindow = Outer;
     Library:MakeDraggable(Outer, 25);
 
     local Inner = Library:Create('Frame', {
