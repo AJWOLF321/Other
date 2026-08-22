@@ -2361,18 +2361,20 @@ do
             local listSizeY = ListOuter.AbsoluteSize.Y;
             local screenY = ScreenGui.AbsoluteSize.Y;
             
-            -- If Dropdown button is scrolled out of view in its ScrollingFrame, close it
-            local parentSide = DropdownOuter:FindFirstAncestorWhichIsA("ScrollingFrame")
-            if parentSide then
-                local sidePos = parentSide.AbsolutePosition
-                local sideSize = parentSide.AbsoluteSize
-                if (absPos.Y + absSize.Y < sidePos.Y) or (absPos.Y > sidePos.Y + sideSize.Y) then
-                    if Dropdown.CloseDropdown then
-                        Dropdown:CloseDropdown()
-                    else
-                        ListOuter.Visible = false
+            -- If Dropdown is open and scrolled out of view in its ScrollingFrame, close it
+            if ListOuter.Visible then
+                local parentSide = DropdownOuter:FindFirstAncestorWhichIsA("ScrollingFrame")
+                if parentSide then
+                    local sidePos = parentSide.AbsolutePosition
+                    local sideSize = parentSide.AbsoluteSize
+                    if (absPos.Y + absSize.Y < sidePos.Y) or (absPos.Y > sidePos.Y + sideSize.Y) then
+                        if Dropdown.CloseDropdown then
+                            Dropdown:CloseDropdown()
+                        else
+                            ListOuter.Visible = false
+                        end
+                        return
                     end
-                    return
                 end
             end
             
