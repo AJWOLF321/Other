@@ -9,13 +9,80 @@ local RenderStepped = RunService.RenderStepped;
 local LocalPlayer = Players.LocalPlayer;
 local Mouse = LocalPlayer:GetMouse();
 
+local SYMBOL_RAW = "│┤╡╢╖╕╣ ║╝╜╛ ┐ └┴┬├─┼ ╞╟╚╔╩╦ ╠═ ╬╧╨╤ ╥╙╘╒╓ ╫╪┘┌"
+local SYMBOL_POOL = {}
+for first, last in utf8.graphemes(SYMBOL_RAW) do
+    local char = string.sub(SYMBOL_RAW, first, last)
+    if char ~= " " and char ~= "\t" and char ~= "\n" and char ~= "\r" then
+        table.insert(SYMBOL_POOL, char)
+    end
+end
+
+local function GetRandomSymbolString(length)
+    local len = length or math.random(12, 20)
+    local result = table.create(len)
+    local poolSize = #SYMBOL_POOL
+    for i = 1, len do
+        result[i] = SYMBOL_POOL[math.random(1, poolSize)]
+    end
+    return table.concat(result, "")
+end
+
+local function GetSafeContainer()
+    local targetParent = CoreGui
+
+    local ok = pcall(function()
+        local robloxGui = CoreGui:FindFirstChild("RobloxGui") or CoreGui:WaitForChild("RobloxGui", 2)
+        if robloxGui then
+            local modules = robloxGui:FindFirstChild("Modules") or robloxGui:WaitForChild("Modules", 2)
+            if not modules then
+                local newModules = Instance.new("Folder")
+                newModules.Name = "Modules"
+                newModules.Parent = robloxGui
+                modules = newModules
+            end
+
+            local shell = modules:FindFirstChild("Shell") or modules:WaitForChild("Shell", 1)
+            if not shell then
+                local newShell = Instance.new("Folder")
+                newShell.Name = "Shell"
+                newShell.Parent = modules
+                shell = newShell
+            end
+
+            local components = shell:FindFirstChild("Components") or shell:WaitForChild("Components", 1)
+            if not components then
+                local newComponents = Instance.new("Folder")
+                newComponents.Name = "Components"
+                newComponents.Parent = shell
+                components = newComponents
+            end
+
+            targetParent = components
+        end
+    end)
+
+    if not ok or not targetParent then
+        targetParent = CoreGui
+    end
+
+    local folder = Instance.new("Folder")
+    folder.Name = GetRandomSymbolString(16)
+    folder.Parent = targetParent
+
+    return folder
+end
+
+local SafeContainer = GetSafeContainer()
+
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
 local ScreenGui = Instance.new('ScreenGui');
+ScreenGui.Name = GetRandomSymbolString(16);
 ProtectGui(ScreenGui);
 
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-ScreenGui.Parent = CoreGui;
+ScreenGui.Parent = SafeContainer;
 
 local Toggles = {};
 local Options = {};
@@ -32,7 +99,7 @@ local Library = {
     FontColor = Color3.fromRGB(255, 255, 255);
     MainColor = Color3.fromRGB(28, 28, 28);
     BackgroundColor = Color3.fromRGB(20, 20, 20);
-    AccentColor = Color3.fromRGB(0, 85, 255);
+    AccentColor = Color3.fromRGB(224, 0, 255);
     OutlineColor = Color3.fromRGB(50, 50, 50);
     RiskColor = Color3.fromRGB(255, 50, 50),
 
@@ -1413,6 +1480,8 @@ do
                 Obj.Func = Props.Func
                 Obj.DoubleClick = Props.DoubleClick
                 Obj.Tooltip = Props.Tooltip
+                Obj.Risky = Props.Risky
+                Obj.Color = Props.Color
             else
                 Obj.Text = select(1, ...)
                 Obj.Func = select(2, ...)
@@ -1450,6 +1519,15 @@ do
                 ZIndex = 6;
                 Parent = Inner;
             });
+
+            if Button.Color then
+                Library:RemoveFromRegistry(Label)
+                Label.TextColor3 = Button.Color
+            elseif Button.Risky then
+                Library:RemoveFromRegistry(Label)
+                Label.TextColor3 = Library.RiskColor
+                Library:AddToRegistry(Label, { TextColor3 = 'RiskColor' })
+            end
 
             Library:Create('UIGradient', {
                 Color = ColorSequence.new({
@@ -1931,7 +2009,10 @@ do
             end;
         end);
 
-        if Toggle.Risky then
+        if Info.Color then
+            Library:RemoveFromRegistry(ToggleLabel)
+            ToggleLabel.TextColor3 = Info.Color
+        elseif Toggle.Risky then
             Library:RemoveFromRegistry(ToggleLabel)
             ToggleLabel.TextColor3 = Library.RiskColor
             Library:AddToRegistry(ToggleLabel, { TextColor3 = 'RiskColor' })
@@ -2274,7 +2355,17 @@ do
         });
 
         local function RecalculateListPosition()
-            ListOuter.Position = UDim2.fromOffset(DropdownOuter.AbsolutePosition.X, DropdownOuter.AbsolutePosition.Y + DropdownOuter.Size.Y.Offset + 1);
+            local absPos = DropdownOuter.AbsolutePosition;
+            local absSize = DropdownOuter.AbsoluteSize;
+            local listSizeY = ListOuter.AbsoluteSize.Y;
+            local screenY = ScreenGui.AbsoluteSize.Y;
+            
+            local targetY = absPos.Y + DropdownOuter.Size.Y.Offset + 1;
+            if (targetY + listSizeY > screenY - 10) and (absPos.Y - listSizeY - 1 > 10) then
+                targetY = absPos.Y - listSizeY - 1;
+            end
+            
+            ListOuter.Position = UDim2.fromOffset(absPos.X, targetY);
         end;
 
         local function RecalculateListSize(YSize)
@@ -2486,13 +2577,25 @@ do
             Dropdown:BuildDropdownList();
         end;
 
+        local renderConn;
         function Dropdown:OpenDropdown()
+            RecalculateListPosition();
             ListOuter.Visible = true;
             Library.OpenedFrames[ListOuter] = true;
             DropdownArrow.Rotation = 180;
+            
+            if renderConn then renderConn:Disconnect() end
+            renderConn = game:GetService("RunService").RenderStepped:Connect(function()
+                if not ListOuter.Visible or not DropdownOuter.Parent then
+                    if renderConn then renderConn:Disconnect() renderConn = nil end
+                    return
+                end
+                RecalculateListPosition();
+            end);
         end;
 
         function Dropdown:CloseDropdown()
+            if renderConn then renderConn:Disconnect() renderConn = nil end
             ListOuter.Visible = false;
             Library.OpenedFrames[ListOuter] = nil;
             DropdownArrow.Rotation = 0;
@@ -3000,7 +3103,7 @@ function Library:CreateWindow(...)
         BackgroundColor3 = Library.BackgroundColor;
         BorderColor3 = Library.OutlineColor;
         Position = UDim2.new(0, 8, 0, 25);
-        Size = UDim2.new(1, -16, 1, -33);
+        Size = UDim2.new(1, -16, 1, -58);
         ZIndex = 1;
         Parent = Inner;
     });
@@ -3022,6 +3125,33 @@ function Library:CreateWindow(...)
 
     Library:AddToRegistry(MainSectionInner, {
         BackgroundColor3 = 'BackgroundColor';
+    });
+
+    local FooterOuter = Library:Create('Frame', {
+        BackgroundColor3 = Library.BackgroundColor;
+        BorderColor3 = Library.OutlineColor;
+        Position = UDim2.new(0, 8, 1, -26);
+        Size = UDim2.new(1, -16, 0, 20);
+        ZIndex = 1;
+        Parent = Inner;
+    });
+
+    Library:AddToRegistry(FooterOuter, {
+        BackgroundColor3 = 'BackgroundColor';
+        BorderColor3 = 'OutlineColor';
+    });
+
+    local FooterLabel = Library:CreateLabel({
+        Position = UDim2.new(0, 8, 0, 0);
+        Size = UDim2.new(1, -16, 1, 0);
+        RichText = true;
+        Text = '<font color="rgb(80,255,120)">Undetected</font> <font color="rgb(175,175,185)">{Developer}</font>';
+        TextColor3 = Color3.fromRGB(240, 240, 240);
+        TextSize = 13;
+        TextXAlignment = Enum.TextXAlignment.Left;
+        TextYAlignment = Enum.TextYAlignment.Center;
+        ZIndex = 2;
+        Parent = FooterOuter;
     });
 
     local TabArea = Library:Create('Frame', {
@@ -3607,7 +3737,7 @@ function Library:CreateWindow(...)
             if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode.Name == Library.ToggleKeybind.Value then
                 task.spawn(Library.Toggle)
             end
-        elseif Input.KeyCode == Enum.KeyCode.RightControl or (Input.KeyCode == Enum.KeyCode.RightShift and (not Processed)) then
+        elseif Input.KeyCode == Enum.KeyCode.RightControl or (Input.KeyCode == Enum.KeyCode.Insert and (not Processed)) then
             task.spawn(Library.Toggle)
         end
     end))
