@@ -2355,14 +2355,32 @@ do
         });
 
         local function RecalculateListPosition()
+            if not DropdownOuter or not DropdownOuter.Parent then return end
             local absPos = DropdownOuter.AbsolutePosition;
             local absSize = DropdownOuter.AbsoluteSize;
             local listSizeY = ListOuter.AbsoluteSize.Y;
             local screenY = ScreenGui.AbsoluteSize.Y;
             
+            -- If Dropdown button is scrolled out of view in its ScrollingFrame, close it
+            local parentSide = DropdownOuter:FindFirstAncestorWhichIsA("ScrollingFrame")
+            if parentSide then
+                local sidePos = parentSide.AbsolutePosition
+                local sideSize = parentSide.AbsoluteSize
+                if (absPos.Y + absSize.Y < sidePos.Y) or (absPos.Y > sidePos.Y + sideSize.Y) then
+                    Dropdown:CloseDropdown()
+                    return
+                end
+            end
+            
+            local windowFrame = Library.MainWindow or ScreenGui:FindFirstChildWhichIsA("Frame")
+            local windowBottom = if windowFrame then (windowFrame.AbsolutePosition.Y + windowFrame.AbsoluteSize.Y) else (screenY - 10)
+            local windowTop = if windowFrame then (windowFrame.AbsolutePosition.Y + 25) else 10
+            
             local targetY = absPos.Y + DropdownOuter.Size.Y.Offset + 1;
-            if (targetY + listSizeY > screenY - 10) and (absPos.Y - listSizeY - 1 > 10) then
-                targetY = absPos.Y - listSizeY - 1;
+            if (targetY + listSizeY > windowBottom - 4) or (targetY + listSizeY > screenY - 10) then
+                if (absPos.Y - listSizeY - 1 >= windowTop) then
+                    targetY = absPos.Y - listSizeY - 1;
+                end
             end
             
             ListOuter.Position = UDim2.fromOffset(absPos.X, targetY);
@@ -3073,6 +3091,7 @@ function Library:CreateWindow(...)
         Parent = ScreenGui;
     });
 
+    Library.MainWindow = Outer;
     Library:MakeDraggable(Outer, 25);
 
     local Inner = Library:Create('Frame', {
