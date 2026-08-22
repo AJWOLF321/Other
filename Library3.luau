@@ -2367,7 +2367,11 @@ do
                 local sidePos = parentSide.AbsolutePosition
                 local sideSize = parentSide.AbsoluteSize
                 if (absPos.Y + absSize.Y < sidePos.Y) or (absPos.Y > sidePos.Y + sideSize.Y) then
-                    Dropdown:CloseDropdown()
+                    if Dropdown.CloseDropdown then
+                        Dropdown:CloseDropdown()
+                    else
+                        ListOuter.Visible = false
+                    end
                     return
                 end
             end
