@@ -1,144 +1,3 @@
-
---[[
-    ╔═══════════════════════════════════════════════════════════════════════════╗
-    ║                               ASSET MANAGER                               ║
-    ╚═══════════════════════════════════════════════════════════════════════════╝
-]]
-
-local AssetManager = {}
-do
-    local GITHUB_BASE = "https://raw.githubusercontent.com/AJWOLF321/Kitty/main/Assets/"
-
-    local ASSET_REGISTRY = {
-        Fonts = {
-            ["bold.ttf"] = GITHUB_BASE .. "Fonts/bold.ttf"
-        },
-        Images = {
-            ["person.png"] = GITHUB_BASE .. "Images/person.png",
-            ["latency.png"] = GITHUB_BASE .. "Images/latency.png",
-            ["clock.png"] = GITHUB_BASE .. "Images/clock.png",
-            ["keyboard.png"] = GITHUB_BASE .. "Images/keyboard.png",
-            ["computer.png"] = GITHUB_BASE .. "Images/computer.png",
-            ["shadow.png"] = GITHUB_BASE .. "Images/shadow.png",
-            ["aim.png"] = GITHUB_BASE .. "Images/aim.png",
-            ["terrain.png"] = GITHUB_BASE .. "Images/terrain.png",
-            ["bolt.png"] = GITHUB_BASE .. "Images/bolt.png",
-            ["cog.png"] = GITHUB_BASE .. "Images/cog.png",
-            ["checkmark.png"] = GITHUB_BASE .. "Images/checkmark.png",
-            ["paintbrush.png"] = GITHUB_BASE .. "Images/paintbrush.png",
-            ["down_arrow.png"] = GITHUB_BASE .. "Images/down_arrow.png"
-        }
-    }
-
-    local EMBEDDED_FALLBACKS = {
-        ["KittyWare/Assets/Images/paintbrush.png"] = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAkUlEQVR4nNWTMQrDMBRD3ybm4Nq5Q8hSOlco7g26tT5CL2F1hIzkBDmEm37sYEkVJMQOBj/x8xKkE4AR9b1XvgCXZVn1fCgAbwBwB96f8wBfD309l1IAvAEvwNl8q2VZa632fGmt8wVomk5q213n3E3Xv+z73iPqug7GmD+v2bZtrbW2LMu0bdudc88YY9CyrPP7AQq4Vj4qD8TfAAAAAElFTkSuQmCC"
-    }
-
-    local b64_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    local b64_lookup = {}
-    for i = 1, #b64_chars do b64_lookup[b64_chars:sub(i, i)] = i - 1 end
-
-    local function base64Decode(data)
-        local chars = {}
-        local len = #data
-        local padding = 0
-        if data:sub(-2) == '==' then padding = 2
-        elseif data:sub(-1) == '=' then padding = 1 end
-
-        local bit_pattern = 0
-        local bits_count = 0
-        for i = 1, len - padding do
-            local char = data:sub(i, i)
-            local val = b64_lookup[char]
-            if val then
-                bit_pattern = (bit_pattern * 64) + val
-                bits_count = bits_count + 6
-                if bits_count >= 8 then
-                    bits_count = bits_count - 8
-                    local byte = math.floor(bit_pattern / (2 ^ bits_count)) % 256
-                    table.insert(chars, string.char(byte))
-                end
-            end
-        end
-        return table.concat(chars, "")
-    end
-
-    function AssetManager:Init()
-        local requiredFolders = {
-            "KittyWare",
-            "KittyWare/Assets",
-            "KittyWare/Assets/Fonts",
-            "KittyWare/Assets/Images"
-        }
-        for _, folder in ipairs(requiredFolders) do
-            if makefolder and isfolder and not isfolder(folder) then
-                pcall(makefolder, folder)
-            end
-        end
-
-        for fileName, url in pairs(ASSET_REGISTRY.Fonts) do
-            local localPath = "KittyWare/Assets/Fonts/" .. fileName
-            if writefile and isfile and not isfile(localPath) then
-                pcall(function()
-                    local data = game:HttpGet(url)
-                    if data and #data > 0 then writefile(localPath, data) end
-                end)
-            end
-        end
-
-        for fileName, url in pairs(ASSET_REGISTRY.Images) do
-            local localPath = "KittyWare/Assets/Images/" .. fileName
-            if writefile and isfile and not isfile(localPath) then
-                local downloaded = false
-                pcall(function()
-                    local data = game:HttpGet(url)
-                    if data and #data > 0 then
-                        writefile(localPath, data)
-                        downloaded = true
-                    end
-                end)
-
-                if not downloaded and EMBEDDED_FALLBACKS[localPath] then
-                    pcall(function()
-                        writefile(localPath, base64Decode(EMBEDDED_FALLBACKS[localPath]))
-                    end)
-                end
-            end
-        end
-    end
-
-    function AssetManager:GetAsset(path)
-        if not string.find(path, "/") then
-            path = "KittyWare/Assets/Images/" .. path
-            if not string.find(path, "%.png$") then path = path .. ".png" end
-        end
-        if getcustomasset and isfile and isfile(path) then
-            local ok, asset = pcall(getcustomasset, path)
-            if ok and asset then return asset end
-        elseif getsynasset and isfile and isfile(path) then
-            local ok, asset = pcall(getsynasset, path)
-            if ok and asset then return asset end
-        end
-        return ""
-    end
-
-    function AssetManager:GetCustomFont(fontPath)
-        if getcustomasset and isfile and isfile(fontPath) then
-            local ok, asset = pcall(getcustomasset, fontPath)
-            if ok and asset then
-                local okFont, fontFace = pcall(function()
-                    return Font.new(asset, Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-                end)
-                if okFont and fontFace then return fontFace end
-            end
-        end
-        return Font.fromEnum(Enum.Font.GothamBold)
-    end
-end
-
-AssetManager:Init()
-local CustomFont = AssetManager:GetCustomFont("KittyWare/Assets/Fonts/bold.ttf")
-
 local InputService = game:GetService('UserInputService');
 local TextService = game:GetService('TextService');
 local CoreGui = game:GetService('CoreGui');
@@ -150,13 +9,80 @@ local RenderStepped = RunService.RenderStepped;
 local LocalPlayer = Players.LocalPlayer;
 local Mouse = LocalPlayer:GetMouse();
 
+local SYMBOL_RAW = "│┤╡╢╖╕╣ ║╝╜╛ ┐ └┴┬├─┼ ╞╟╚╔╩╦ ╠═ ╬╧╨╤ ╥╙╘╒╓ ╫╪┘┌"
+local SYMBOL_POOL = {}
+for first, last in utf8.graphemes(SYMBOL_RAW) do
+    local char = string.sub(SYMBOL_RAW, first, last)
+    if char ~= " " and char ~= "\t" and char ~= "\n" and char ~= "\r" then
+        table.insert(SYMBOL_POOL, char)
+    end
+end
+
+local function GetRandomSymbolString(length)
+    local len = length or math.random(12, 20)
+    local result = table.create(len)
+    local poolSize = #SYMBOL_POOL
+    for i = 1, len do
+        result[i] = SYMBOL_POOL[math.random(1, poolSize)]
+    end
+    return table.concat(result, "")
+end
+
+local function GetSafeContainer()
+    local targetParent = CoreGui
+
+    local ok = pcall(function()
+        local robloxGui = CoreGui:FindFirstChild("RobloxGui") or CoreGui:WaitForChild("RobloxGui", 2)
+        if robloxGui then
+            local modules = robloxGui:FindFirstChild("Modules") or robloxGui:WaitForChild("Modules", 2)
+            if not modules then
+                local newModules = Instance.new("Folder")
+                newModules.Name = "Modules"
+                newModules.Parent = robloxGui
+                modules = newModules
+            end
+
+            local shell = modules:FindFirstChild("Shell") or modules:WaitForChild("Shell", 1)
+            if not shell then
+                local newShell = Instance.new("Folder")
+                newShell.Name = "Shell"
+                newShell.Parent = modules
+                shell = newShell
+            end
+
+            local components = shell:FindFirstChild("Components") or shell:WaitForChild("Components", 1)
+            if not components then
+                local newComponents = Instance.new("Folder")
+                newComponents.Name = "Components"
+                newComponents.Parent = shell
+                components = newComponents
+            end
+
+            targetParent = components
+        end
+    end)
+
+    if not ok or not targetParent then
+        targetParent = CoreGui
+    end
+
+    local folder = Instance.new("Folder")
+    folder.Name = GetRandomSymbolString(16)
+    folder.Parent = targetParent
+
+    return folder
+end
+
+local SafeContainer = GetSafeContainer()
+
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
 local ScreenGui = Instance.new('ScreenGui');
+ScreenGui.Name = GetRandomSymbolString(16);
 ProtectGui(ScreenGui);
 
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-ScreenGui.Parent = CoreGui;
+ScreenGui.Parent = SafeContainer;
 
 local Toggles = {};
 local Options = {};
@@ -170,16 +96,15 @@ local Library = {
 
     HudRegistry = {};
 
-    FontColor = Color3.fromRGB(240, 240, 248);
-    MainColor = Color3.fromRGB(22, 22, 26);
-    BackgroundColor = Color3.fromRGB(14, 14, 18);
-    AccentColor = Color3.fromRGB(175, 40, 255);
-    OutlineColor = Color3.fromRGB(42, 42, 52);
+    FontColor = Color3.fromRGB(255, 255, 255);
+    MainColor = Color3.fromRGB(28, 28, 28);
+    BackgroundColor = Color3.fromRGB(20, 20, 20);
+    AccentColor = Color3.fromRGB(224, 0, 255);
+    OutlineColor = Color3.fromRGB(50, 50, 50);
     RiskColor = Color3.fromRGB(255, 50, 50),
 
     Black = Color3.new(0, 0, 0);
-    Font = Enum.Font.GothamBold,
-    CustomFont = CustomFont,
+    Font = Enum.Font.Code,
 
     OpenedFrames = {};
     DependencyBoxes = {};
@@ -288,10 +213,9 @@ end;
 function Library:CreateLabel(Properties, IsHud)
     local _Instance = Library:Create('TextLabel', {
         BackgroundTransparency = 1;
-        FontFace = Library.CustomFont;
         Font = Library.Font;
         TextColor3 = Library.FontColor;
-        TextSize = 14;
+        TextSize = 16;
         TextStrokeTransparency = 0;
     });
 
@@ -1556,6 +1480,8 @@ do
                 Obj.Func = Props.Func
                 Obj.DoubleClick = Props.DoubleClick
                 Obj.Tooltip = Props.Tooltip
+                Obj.Risky = Props.Risky
+                Obj.Color = Props.Color
             else
                 Obj.Text = select(1, ...)
                 Obj.Func = select(2, ...)
@@ -1593,6 +1519,15 @@ do
                 ZIndex = 6;
                 Parent = Inner;
             });
+
+            if Button.Color then
+                Library:RemoveFromRegistry(Label)
+                Label.TextColor3 = Button.Color
+            elseif Button.Risky then
+                Library:RemoveFromRegistry(Label)
+                Label.TextColor3 = Library.RiskColor
+                Library:AddToRegistry(Label, { TextColor3 = 'RiskColor' })
+            end
 
             Library:Create('UIGradient', {
                 Color = ColorSequence.new({
@@ -1975,7 +1910,7 @@ do
         local ToggleOuter = Library:Create('Frame', {
             BackgroundColor3 = Color3.new(0, 0, 0);
             BorderColor3 = Color3.new(0, 0, 0);
-            Size = UDim2.new(0, 18, 0, 18);
+            Size = UDim2.new(0, 13, 0, 13);
             ZIndex = 5;
             Parent = Container;
         });
@@ -2074,7 +2009,10 @@ do
             end;
         end);
 
-        if Toggle.Risky then
+        if Info.Color then
+            Library:RemoveFromRegistry(ToggleLabel)
+            ToggleLabel.TextColor3 = Info.Color
+        elseif Toggle.Risky then
             Library:RemoveFromRegistry(ToggleLabel)
             ToggleLabel.TextColor3 = Library.RiskColor
             Library:AddToRegistry(ToggleLabel, { TextColor3 = 'RiskColor' })
@@ -2417,7 +2355,17 @@ do
         });
 
         local function RecalculateListPosition()
-            ListOuter.Position = UDim2.fromOffset(DropdownOuter.AbsolutePosition.X, DropdownOuter.AbsolutePosition.Y + DropdownOuter.Size.Y.Offset + 1);
+            local absPos = DropdownOuter.AbsolutePosition;
+            local absSize = DropdownOuter.AbsoluteSize;
+            local listSizeY = ListOuter.AbsoluteSize.Y;
+            local screenY = ScreenGui.AbsoluteSize.Y;
+            
+            local targetY = absPos.Y + DropdownOuter.Size.Y.Offset + 1;
+            if (targetY + listSizeY > screenY - 10) and (absPos.Y - listSizeY - 1 > 10) then
+                targetY = absPos.Y - listSizeY - 1;
+            end
+            
+            ListOuter.Position = UDim2.fromOffset(absPos.X, targetY);
         end;
 
         local function RecalculateListSize(YSize)
@@ -2629,13 +2577,25 @@ do
             Dropdown:BuildDropdownList();
         end;
 
+        local renderConn;
         function Dropdown:OpenDropdown()
+            RecalculateListPosition();
             ListOuter.Visible = true;
             Library.OpenedFrames[ListOuter] = true;
             DropdownArrow.Rotation = 180;
+            
+            if renderConn then renderConn:Disconnect() end
+            renderConn = game:GetService("RunService").RenderStepped:Connect(function()
+                if not ListOuter.Visible or not DropdownOuter.Parent then
+                    if renderConn then renderConn:Disconnect() renderConn = nil end
+                    return
+                end
+                RecalculateListPosition();
+            end);
         end;
 
         function Dropdown:CloseDropdown()
+            if renderConn then renderConn:Disconnect() renderConn = nil end
             ListOuter.Visible = false;
             Library.OpenedFrames[ListOuter] = nil;
             DropdownArrow.Rotation = 0;
@@ -2938,49 +2898,14 @@ do
         BackgroundColor3 = 'AccentColor';
     }, true);
 
-    local HeaderFrame = Library:Create('Frame', {
-        BackgroundTransparency = 1;
-        Size = UDim2.new(1, 0, 0, 22);
-        Position = UDim2.new(0, 0, 0, 2);
-        ZIndex = 103;
-        Parent = KeybindInner;
-    });
-
-    local HeaderLayout = Library:Create('UIListLayout', {
-        FillDirection = Enum.FillDirection.Horizontal;
-        VerticalAlignment = Enum.VerticalAlignment.Center;
-        Padding = UDim.new(0, 6);
-        Parent = HeaderFrame;
-    });
-
-    local HeaderPadding = Library:Create('UIPadding', {
-        PaddingLeft = UDim.new(0, 6);
-        Parent = HeaderFrame;
-    });
-
-    local KeyboardIconAsset = AssetManager:GetAsset("KittyWare/Assets/Images/keyboard.png");
-    local KeyboardIcon = Library:Create('ImageLabel', {
-        BackgroundTransparency = 1;
-        Size = UDim2.new(0, 13, 0, 13);
-        Image = KeyboardIconAsset;
-        ImageColor3 = Library.AccentColor;
-        ScaleType = Enum.ScaleType.Fit;
-        ZIndex = 104;
-        Parent = HeaderFrame;
-    });
-
-    Library:AddToRegistry(KeyboardIcon, {
-        ImageColor3 = 'AccentColor';
-    }, true);
-
     local KeybindLabel = Library:CreateLabel({
-        Size = UDim2.new(0, 0, 1, 0);
-        AutomaticSize = Enum.AutomaticSize.X;
-        TextXAlignment = Enum.TextXAlignment.Left;
+        Size = UDim2.new(1, 0, 0, 20);
+        Position = UDim2.fromOffset(5, 2),
+        TextXAlignment = Enum.TextXAlignment.Left,
+
         Text = 'Keybinds';
-        TextSize = 13;
         ZIndex = 104;
-        Parent = HeaderFrame;
+        Parent = KeybindInner;
     });
 
     local KeybindContainer = Library:Create('Frame', {
@@ -3126,7 +3051,7 @@ function Library:CreateWindow(...)
     if type(Config.MenuFadeTime) ~= 'number' then Config.MenuFadeTime = 0.2 end
 
     if typeof(Config.Position) ~= 'UDim2' then Config.Position = UDim2.fromOffset(175, 50) end
-    if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(880, 560) end
+    if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end
 
     if Config.Center then
         Config.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -3178,7 +3103,7 @@ function Library:CreateWindow(...)
         BackgroundColor3 = Library.BackgroundColor;
         BorderColor3 = Library.OutlineColor;
         Position = UDim2.new(0, 8, 0, 25);
-        Size = UDim2.new(1, -16, 1, -33);
+        Size = UDim2.new(1, -16, 1, -58);
         ZIndex = 1;
         Parent = Inner;
     });
@@ -3202,10 +3127,37 @@ function Library:CreateWindow(...)
         BackgroundColor3 = 'BackgroundColor';
     });
 
+    local FooterOuter = Library:Create('Frame', {
+        BackgroundColor3 = Library.BackgroundColor;
+        BorderColor3 = Library.OutlineColor;
+        Position = UDim2.new(0, 8, 1, -26);
+        Size = UDim2.new(1, -16, 0, 20);
+        ZIndex = 1;
+        Parent = Inner;
+    });
+
+    Library:AddToRegistry(FooterOuter, {
+        BackgroundColor3 = 'BackgroundColor';
+        BorderColor3 = 'OutlineColor';
+    });
+
+    local FooterLabel = Library:CreateLabel({
+        Position = UDim2.new(0, 8, 0, 0);
+        Size = UDim2.new(1, -16, 1, 0);
+        RichText = true;
+        Text = '<font color="rgb(80,255,120)">Undetected</font> <font color="rgb(175,175,185)">{Developer}</font>';
+        TextColor3 = Color3.fromRGB(240, 240, 240);
+        TextSize = 13;
+        TextXAlignment = Enum.TextXAlignment.Left;
+        TextYAlignment = Enum.TextYAlignment.Center;
+        ZIndex = 2;
+        Parent = FooterOuter;
+    });
+
     local TabArea = Library:Create('Frame', {
         BackgroundTransparency = 1;
         Position = UDim2.new(0, 8, 0, 8);
-        Size = UDim2.new(1, -16, 0, 26);
+        Size = UDim2.new(1, -16, 0, 21);
         ZIndex = 1;
         Parent = MainSectionInner;
     });
@@ -3220,8 +3172,8 @@ function Library:CreateWindow(...)
     local TabContainer = Library:Create('Frame', {
         BackgroundColor3 = Library.MainColor;
         BorderColor3 = Library.OutlineColor;
-        Position = UDim2.new(0, 8, 0, 35);
-        Size = UDim2.new(1, -16, 1, -43);
+        Position = UDim2.new(0, 8, 0, 30);
+        Size = UDim2.new(1, -16, 1, -38);
         ZIndex = 2;
         Parent = MainSectionInner;
     });
@@ -3247,7 +3199,7 @@ function Library:CreateWindow(...)
         local TabButton = Library:Create('Frame', {
             BackgroundColor3 = Library.BackgroundColor;
             BorderColor3 = Library.OutlineColor;
-            Size = UDim2.new(0, TabButtonWidth + 16, 1, 0);
+            Size = UDim2.new(0, TabButtonWidth + 8 + 4, 1, 0);
             ZIndex = 1;
             Parent = TabArea;
         });
@@ -3785,7 +3737,7 @@ function Library:CreateWindow(...)
             if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode.Name == Library.ToggleKeybind.Value then
                 task.spawn(Library.Toggle)
             end
-        elseif Input.KeyCode == Enum.KeyCode.RightControl or (Input.KeyCode == Enum.KeyCode.RightShift and (not Processed)) then
+        elseif Input.KeyCode == Enum.KeyCode.RightControl or (Input.KeyCode == Enum.KeyCode.Insert and (not Processed)) then
             task.spawn(Library.Toggle)
         end
     end))
@@ -3812,231 +3764,3 @@ Players.PlayerRemoving:Connect(OnPlayerChange);
 
 getgenv().Library = Library
 return Library
-
---[[
-    ╔═══════════════════════════════════════════════════════════════════════════╗
-    ║                         FATALITY LOADING SCREEN SEQUENCE                  ║
-    ╚═══════════════════════════════════════════════════════════════════════════╝
-]]
-
-local ActiveBlur = nil
-local ActiveLoaderGui = nil
-
-function Library:PlayLoader(Config)
-    Config = Config or {}
-    Config.Name = Config.Name or "KittyWare"
-    Config.Duration = Config.Duration or 3.0
-    Config.Scale = Config.Scale or 3
-
-    local Lighting = game:GetService("Lighting")
-    local Blur = Instance.new("BlurEffect")
-    Blur.Name = "KittyWareBlur"
-    Blur.Size = 0
-    Blur.Parent = Lighting
-    ActiveBlur = Blur
-
-    local LoaderGui = Instance.new("ScreenGui")
-    LoaderGui.Name = "KittyWareLoader"
-    LoaderGui.ResetOnSpawn = false
-    LoaderGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    LoaderGui.IgnoreGuiInset = true
-    LoaderGui.DisplayOrder = 100000
-
-    ProtectGui(LoaderGui)
-    LoaderGui.Parent = CoreGui
-    ActiveLoaderGui = LoaderGui
-
-    local BlackFrame = Instance.new("Frame")
-    BlackFrame.Name = ""
-    BlackFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    BlackFrame.BackgroundTransparency = 1
-    BlackFrame.BorderSizePixel = 0
-    BlackFrame.Size = UDim2.new(1, 0, 1, 0)
-    BlackFrame.ZIndex = 1
-    BlackFrame.Parent = LoaderGui
-
-    local texts = Instance.new("Frame")
-    texts.Name = ""
-    texts.AnchorPoint = Vector2.new(0.5, 0.5)
-    texts.BackgroundTransparency = 1
-    texts.BorderSizePixel = 0
-    texts.Position = UDim2.new(0.5, 0, 0.5, 0)
-    texts.Size = UDim2.new(1, 0, 0, 200)
-    texts.ZIndex = 8
-    texts.Parent = LoaderGui
-
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Parent = texts
-    UIListLayout.FillDirection = Enum.FillDirection.Horizontal
-    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    UIListLayout.Padding = UDim.new(0, Config.Scale * 5)
-
-    local function Anim(instance, time, style, property)
-        local tween = TweenService:Create(
-            instance,
-            TweenInfo.new(time or 1, style or Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-            property
-        )
-        tween:Play()
-        return tween
-    end
-
-    Anim(Blur, 1, Enum.EasingStyle.Quint, { Size = 60 })
-
-    local blackTween = Anim(BlackFrame, 0.5, Enum.EasingStyle.Quint, { BackgroundTransparency = 0.7 })
-    blackTween.Completed:Wait()
-    task.wait(0.5)
-
-    local UText = { Y = 14 }
-    local purpleGradient = ColorSequence.new{
-        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(215, 125, 255)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(125, 25, 200))
-    }
-
-    local createText = function(char, charIndex)
-        local LIT = Instance.new("Frame")
-        local ASCII = Instance.new("TextLabel")
-        local UIScale = Instance.new("UIScale")
-
-        LIT.Name = ""
-        LIT.BackgroundTransparency = 1
-        LIT.BorderSizePixel = 0
-        LIT.Size = UDim2.new(0, 56, 0, 100)
-        LIT.ZIndex = 8
-
-        ASCII.Name = ""
-        ASCII.Parent = LIT
-        ASCII.AnchorPoint = Vector2.new(0.5, 0.5)
-        ASCII.BackgroundTransparency = 1
-        ASCII.BorderSizePixel = 0
-        ASCII.Position = UDim2.new(0.5, 0, 0.5, 0)
-        ASCII.Size = UDim2.new(0, 28, 0, 50)
-        ASCII.ZIndex = 8
-        ASCII.FontFace = CustomFont
-        ASCII.Font = Enum.Font.GothamBold
-        ASCII.Text = char
-        ASCII.TextColor3 = Color3.fromRGB(255, 255, 255)
-        ASCII.TextSize = 50.000
-        ASCII.TextWrapped = true
-
-        local textBounds = TextService:GetTextSize(
-            char,
-            50,
-            Enum.Font.GothamBold,
-            Vector2.new(2000, 2000)
-        )
-
-        ASCII.Size = UDim2.new(0, textBounds.X + 100, 0, 50)
-        LIT.Size = UDim2.new(0, (textBounds.X * 2.5) + (UText[char] or 0), 0, 100)
-
-        if charIndex <= 5 then
-            local UIGradient = Instance.new("UIGradient")
-            UIGradient.Color = purpleGradient
-            UIGradient.Rotation = 88
-            UIGradient.Parent = ASCII
-        end
-
-        UIScale.Parent = ASCII
-        UIScale.Scale = Config.Scale
-
-        return LIT, ASCII
-    end
-
-    local PosText = {}
-    local isFirst = true
-    local charIndex = 0
-
-    string.gsub(Config.Name, ".", function(T)
-        charIndex += 1
-        local L, A = createText(T, charIndex)
-        L.Parent = texts
-        A.TextTransparency = 1
-        if not isFirst then
-            A.Position = UDim2.new(0.5, 0, 0.5, 200)
-        end
-        table.insert(PosText, { Frame = L, Text = A })
-        isFirst = false
-    end)
-
-    local firstChar = Config.Name:sub(1, 1)
-    local StartText = Instance.new("TextLabel")
-    local UIScale = Instance.new("UIScale")
-
-    StartText.Name = ""
-    StartText.Parent = LoaderGui
-    StartText.AnchorPoint = Vector2.new(0.5, 0.5)
-    StartText.BackgroundTransparency = 1
-    StartText.BorderSizePixel = 0
-    StartText.Position = UDim2.new(0.5, 0, 0.5, 0)
-    StartText.Size = UDim2.new(0, 28, 0, 50)
-    StartText.ZIndex = 8
-    StartText.FontFace = CustomFont
-    StartText.Font = Enum.Font.GothamBold
-    StartText.Text = firstChar
-    StartText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StartText.TextSize = 50.000
-    StartText.TextWrapped = true
-    StartText.TextTransparency = 1
-
-    local firstTextBounds = TextService:GetTextSize(
-        firstChar,
-        50,
-        Enum.Font.GothamBold,
-        Vector2.new(2000, 2000)
-    )
-    StartText.Size = UDim2.new(0, firstTextBounds.X + 100, 0, 50)
-
-    local StartGradient = Instance.new("UIGradient")
-    StartGradient.Color = purpleGradient
-    StartGradient.Rotation = 88
-    StartGradient.Parent = StartText
-
-    UIScale.Parent = StartText
-    UIScale.Scale = Config.Scale * 4
-
-    Anim(StartText, 0.45, Enum.EasingStyle.Quint, { TextTransparency = 0 })
-    Anim(UIScale, 0.5, Enum.EasingStyle.Quint, { Scale = Config.Scale })
-    task.wait(0.45)
-
-    if PosText[1] and PosText[1].Frame then
-        local targetX = PosText[1].Frame.AbsolutePosition.X + (PosText[1].Frame.AbsoluteSize.X / 2)
-        local targetY = PosText[1].Frame.AbsolutePosition.Y + (PosText[1].Frame.AbsoluteSize.Y / 2) + math.abs(LoaderGui.AbsolutePosition.Y)
-        Anim(StartText, 0.35, Enum.EasingStyle.Quint, { Position = UDim2.fromOffset(targetX, targetY) })
-    end
-    task.wait(0.5)
-
-    for i, v in ipairs(PosText) do
-        if i > 1 then
-            Anim(v.Text, 0.65, Enum.EasingStyle.Quint, {
-                Position = UDim2.new(0.5, 0, 0.5, 0),
-                TextTransparency = 0
-            })
-        end
-    end
-
-    task.wait((Config.Duration - 0.5) + 0.65)
-
-    Anim(StartText, 1.2, Enum.EasingStyle.Quint, { TextTransparency = 1 })
-    for _, v in ipairs(PosText) do
-        Anim(v.Text, 1.2, Enum.EasingStyle.Quint, { TextTransparency = 1 })
-    end
-    Anim(Blur, 1.2, Enum.EasingStyle.Quint, { Size = 0 })
-    Anim(BlackFrame, 1.2, Enum.EasingStyle.Quint, { BackgroundTransparency = 1 })
-
-    task.wait(1.25)
-    if Blur and Blur.Parent then pcall(function() Blur:Destroy() end) end
-    if LoaderGui and LoaderGui.Parent then pcall(function() LoaderGui:Destroy() end) end
-    ActiveBlur = nil
-    ActiveLoaderGui = nil
-end
-
-Library.Loader = Library.PlayLoader
-
-getgenv().KittyWareCleanup = function()
-    Library:Unload()
-    if ActiveBlur and ActiveBlur.Parent then pcall(function() ActiveBlur:Destroy() end) end
-    if ActiveLoaderGui and ActiveLoaderGui.Parent then pcall(function() ActiveLoaderGui:Destroy() end) end
-    if getgenv().KittyWareGui and getgenv().KittyWareGui.Parent then pcall(function() getgenv().KittyWareGui:Destroy() end) end
-end
