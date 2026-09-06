@@ -95,7 +95,12 @@ end
 local function Create(className, properties, children)
     local inst = Instance.new(className)
     for prop, val in pairs(properties or {}) do
-        inst[prop] = val
+        if prop == "Font" and typeof(val) == "Font" then
+            pcall(function() inst.FontFace = val end)
+            pcall(function() inst.Font = Enum.Font.GothamBold end)
+        else
+            pcall(function() inst[prop] = val end)
+        end
     end
     for _, child in ipairs(children or {}) do
         child.Parent = inst
