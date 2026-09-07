@@ -2181,7 +2181,7 @@ function Controls:OpenColorPicker(anchorGui, initialColor, initialAlpha, callbac
     if initialColor then
         curH, curS, curV = Color3.toHSV(initialColor)
     else
-        curH, curS, curV = 0.08, 0.38, 1.0
+        curH, curS, curV = 0, 0, 1.0
     end
     curA = initialAlpha or 1
 
@@ -2389,11 +2389,11 @@ end
 
 do
 local GrenadeTypes = {
-    { Id = "decoy", Name = "Decoy grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
-    { Id = "flash", Name = "Flashbang", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
-    { Id = "smoke", Name = "Smoke grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
-    { Id = "incendiary", Name = "Incendiary grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
-    { Id = "he", Name = "High explosive grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "decoy", Name = "Decoy grenade", Enabled = false, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "flash", Name = "Flashbang", Enabled = false, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "smoke", Name = "Smoke grenade", Enabled = false, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "incendiary", Name = "Incendiary grenade", Enabled = false, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "he", Name = "High explosive grenade", Enabled = false, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
 }
 
 local GrenadeTracersPopover = Instance.new("Frame")
@@ -2840,7 +2840,7 @@ end
 -- Checkbox Toggle (with optional Keybind button)
 function Controls:CreateToggle(parent, config)
     local name = config.Name or "Toggle"
-    local default = (config.Default == true)
+    local default = false
     local hasKeybind = (config.Keybind ~= nil)
     local callback = config.Callback
     local order = config.LayoutOrder or 0
@@ -2995,7 +2995,7 @@ function Controls:CreateToggle(parent, config)
             Chip.Size = UDim2.new(0, 14, 0, 14)
             local offset = baseRight + (count - i) * 18
             Chip.Position = UDim2.new(1, -offset - 14, 0.5, -7)
-            Chip.BackgroundColor3 = chipColor
+            Chip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             Chip.BorderSizePixel = 0
             Chip.Text = ""
             Chip.AutoButtonColor = false
@@ -3019,7 +3019,7 @@ function Controls:CreateToggle(parent, config)
         local ddWidth = config.Dropdown and (config.Dropdown.Width or (config.Dropdown.Multi and 136 or 76)) or 0
         local offset = config.Dropdown and (ddWidth + 22) or (config.SettingsIcon and 40 or 18)
         Chip.Position = UDim2.new(1, -offset, 0.5, -7)
-        Chip.BackgroundColor3 = config.ColorChip
+        Chip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         Chip.BorderSizePixel = 0
         Chip.Text = ""
         Chip.AutoButtonColor = false
@@ -3296,23 +3296,21 @@ function Controls:CreateToggle(parent, config)
         local hasIndicatorUI = (typeof(config.Keybind) == "table" and config.Keybind.HasIndicator == true)
         local bindData = {
             Key = nil,
-            Type = "On key down",
+            Type = "Always on",
             Indicator = false,
             IndicatorText = "",
-            ColorActive = Color3.fromRGB(0, 210, 106),
-            ColorInactive = Color3.fromRGB(229, 37, 53)
+            ColorActive = Color3.fromRGB(255, 255, 255),
+            ColorInactive = Color3.fromRGB(255, 255, 255)
         }
 
         if typeof(config.Keybind) == "table" then
             for k, v in pairs(config.Keybind) do
                 bindData[k] = v
             end
-            if config.Keybind.Mode and not config.Keybind.Type then
-                bindData.Type = config.Keybind.Mode
-            end
         elseif typeof(config.Keybind) == "EnumItem" then
             bindData.Key = config.Keybind
         end
+        bindData.Type = "Always on"
 
         local function getKeyDisplayName(k)
             if not k then return "[none]" end
@@ -3538,7 +3536,7 @@ function Controls:CreateToggle(parent, config)
             local GreenChip = Instance.new("TextButton")
             GreenChip.Name = "Green"
             GreenChip.Size = UDim2.new(0, 14, 0, 14)
-            GreenChip.BackgroundColor3 = bindData.ColorActive or Color3.fromRGB(0, 210, 106)
+            GreenChip.BackgroundColor3 = bindData.ColorActive or Color3.fromRGB(255, 255, 255)
             GreenChip.BorderSizePixel = 0
             GreenChip.Text = ""
             GreenChip.AutoButtonColor = false
@@ -3547,7 +3545,7 @@ function Controls:CreateToggle(parent, config)
             createCorner(GreenChip, 4.75)
 
             GreenChip.MouseButton1Click:Connect(function()
-                Controls:OpenColorPicker(GreenChip, bindData.ColorActive or Color3.fromRGB(0, 210, 106), 1, function(newColor)
+                Controls:OpenColorPicker(GreenChip, bindData.ColorActive or Color3.fromRGB(255, 255, 255), 1, function(newColor)
                     bindData.ColorActive = newColor
                     GreenChip.BackgroundColor3 = newColor
                     updateBindBtn()
@@ -3557,7 +3555,7 @@ function Controls:CreateToggle(parent, config)
             local RedChip = Instance.new("TextButton")
             RedChip.Name = "Red"
             RedChip.Size = UDim2.new(0, 14, 0, 14)
-            RedChip.BackgroundColor3 = bindData.ColorInactive or Color3.fromRGB(229, 37, 53)
+            RedChip.BackgroundColor3 = bindData.ColorInactive or Color3.fromRGB(255, 255, 255)
             RedChip.BorderSizePixel = 0
             RedChip.Text = ""
             RedChip.AutoButtonColor = false
@@ -3566,7 +3564,7 @@ function Controls:CreateToggle(parent, config)
             createCorner(RedChip, 4.75)
 
             RedChip.MouseButton1Click:Connect(function()
-                Controls:OpenColorPicker(RedChip, bindData.ColorInactive or Color3.fromRGB(229, 37, 53), 1, function(newColor)
+                Controls:OpenColorPicker(RedChip, bindData.ColorInactive or Color3.fromRGB(255, 255, 255), 1, function(newColor)
                     bindData.ColorInactive = newColor
                     RedChip.BackgroundColor3 = newColor
                     updateBindBtn()
@@ -3622,7 +3620,7 @@ function Controls:CreateToggle(parent, config)
         TypeText.Size = UDim2.new(1, -20, 1, 0)
         TypeText.Position = UDim2.new(0, 6, 0, 0)
         TypeText.BackgroundTransparency = 1
-        TypeText.Text = bindData.Type or "On key down"
+        TypeText.Text = bindData.Type or "Always on"
         TypeText.TextColor3 = Theme.TextActive
         TypeText.TextSize = 11
         TypeText.Font = Theme.FontMedium
@@ -4726,8 +4724,8 @@ function Controls:CreateDualToggle(parent, config1, config2, order)
 
     local function makeSingle(cfg, posX)
         local cName = cfg.Name or "Toggle"
-        local cDef = (cfg.Default == true)
-        local cState = cDef
+        local cDef = false
+        local cState = false
 
         local SubBox = Instance.new("TextButton")
         SubBox.Name = "Box"
@@ -4905,12 +4903,12 @@ end
 function Controls:CreateMatrixRow(parent, config)
     local name = config.Name or "Item"
     local states = {
-        B = (config.B == true),
-        T = (config.T == true),
-        I = (config.I == true),
-        D = (config.D == true)
+        B = false,
+        T = false,
+        I = false,
+        D = false
     }
-    local baseColor = config.Color or Color3.fromRGB(180, 140, 75)
+    local baseColor = config.Color or Color3.fromRGB(255, 255, 255)
     local boxColors = {
         B = baseColor,
         T = baseColor,
