@@ -191,7 +191,6 @@ local TabIconGlyphs = {
     ["Indicators"]    = ")",
     ["Miscellaneous"] = "6",
     ["Inventory"]     = "-",
-    ["Grenade Helper"] = "5",
     ["Configs"]       = "."
 }
 
@@ -1462,7 +1461,7 @@ local function SelectTab(tabName)
     end
 
     -- Tab-specific header configuration (Screenshots 1-5):
-    if tabName == "Players" or tabName == "Visuals" or tabName == "World" or tabName == "View" or tabName == "Miscellaneous" or tabName == "Inventory" or tabName == "Configs" or tabName == "Grenade Helper" or tabName == "Indicators" then
+    if tabName == "Players" or tabName == "Visuals" or tabName == "World" or tabName == "View" or tabName == "Miscellaneous" or tabName == "Inventory" or tabName == "Configs" or tabName == "Indicators" then
         HeaderCenterGroup.Visible = false
     else
         HeaderCenterGroup.Visible = true
