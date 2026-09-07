@@ -482,6 +482,13 @@ local function handleModalBlockerClick()
             if isPosInGui(frame, mouse, 6) then
                 return
             end
+            for _, desc in ipairs(frame:GetDescendants()) do
+                if desc:IsA("GuiObject") and desc.Visible and desc.Name == "TypePopover" then
+                    if isPosInGui(desc, mouse, 6) then
+                        return
+                    end
+                end
+            end
         end
     end
     CloseAllPopups()
@@ -3635,7 +3642,7 @@ function Controls:CreateToggle(parent, config)
                     TBtn.TextColor3 = Color3.fromRGB(130, 134, 145)
                 end
             end)
-            TBtn.MouseButton1Click:Connect(function()
+            local function selectType()
                 bindData.Type = tOpt
                 TypeText.Text = tOpt
                 TypePopover.Visible = false
@@ -3644,7 +3651,9 @@ function Controls:CreateToggle(parent, config)
                 updateTypeOptionColors()
                 updateBindBtn()
                 updatePopoverLayout()
-            end)
+            end
+            TBtn.MouseButton1Down:Connect(selectType)
+            TBtn.MouseButton1Click:Connect(selectType)
         end
 
         TypeTrigger.MouseButton1Click:Connect(function()
@@ -3747,7 +3756,8 @@ function Controls:CreateToggle(parent, config)
                 local pos = input.Position
                 if isPosInGui(BindPopover, pos) then return end
                 if isPosInGui(BindBtn, pos) then return end
-                if ColorPickerModal.Visible and isPosInGui(ColorPickerModal, pos) then return end
+                if TypePopover and TypePopover.Visible and isPosInGui(TypePopover, pos, 6) then return end
+                if ColorPickerModal and ColorPickerModal.Visible and isPosInGui(ColorPickerModal, pos) then return end
                 BindPopover.Visible = false
                 if TypePopover then TypePopover.Visible = false end
                 if TypeBottomCover then TypeBottomCover.Visible = false end
