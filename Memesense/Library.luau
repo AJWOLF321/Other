@@ -474,7 +474,7 @@ local function CloseAllPopups(preservePredicate)
 end
 
 local function handleModalBlockerClick()
-    if draggingSV or draggingHue or draggingAlpha then return end
+    if draggingSV or draggingHue or draggingAlpha or (os.clock() - lastTypeSelectTime < 0.35) then return end
     local mouse = UserInputService:GetMouseLocation()
     for _, item in ipairs(ActivePopups) do
         local frame = (typeof(item) == "table") and item.Frame or item
@@ -536,6 +536,7 @@ local function makeDraggable(mainFrame, dragHandle)
 end
 
 local lastPopoverDragTime = 0
+local lastTypeSelectTime = 0
 
 local function makePopoverDraggable(frame, isExcluded)
     local dragging = false
@@ -3643,14 +3644,17 @@ function Controls:CreateToggle(parent, config)
                 end
             end)
             local function selectType()
+                lastTypeSelectTime = os.clock()
                 bindData.Type = tOpt
                 TypeText.Text = tOpt
-                TypePopover.Visible = false
-                TypeBottomCover.Visible = false
-                TypeChevron.Text = "C"
                 updateTypeOptionColors()
                 updateBindBtn()
                 updatePopoverLayout()
+                task.defer(function()
+                    TypePopover.Visible = false
+                    TypeBottomCover.Visible = false
+                    TypeChevron.Text = "C"
+                end)
             end
             TBtn.MouseButton1Down:Connect(selectType)
             TBtn.MouseButton1Click:Connect(selectType)
@@ -3752,7 +3756,7 @@ function Controls:CreateToggle(parent, config)
         local bindOutsideConn = UserInputService.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 if not BindPopover.Visible then return end
-                if listening or (os.clock() - lastPopoverDragTime < 0.2) then return end
+                if listening or (os.clock() - lastPopoverDragTime < 0.2) or (os.clock() - lastTypeSelectTime < 0.35) then return end
                 local pos = input.Position
                 if isPosInGui(BindPopover, pos) then return end
                 if isPosInGui(BindBtn, pos) then return end
