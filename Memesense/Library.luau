@@ -3216,9 +3216,9 @@ function Controls:CreateToggle(parent, config)
         BindBtn.Parent = ToggleRow
 
         local function updateBindBtn()
-            local isBound = (bindData.Key ~= nil)
+            local isBound = (bindData.Key ~= nil and bindData.Key ~= Enum.KeyCode.Unknown)
             local isUnboundWarning = (not isBound and (bindData.Type == "Toggle" or bindData.Type == "On key down" or bindData.Type == "Hold"))
-            if isBound or isUnboundWarning then
+            if isUnboundWarning then
                 BindBtn.TextColor3 = Theme.Accent
             else
                 BindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -3227,9 +3227,9 @@ function Controls:CreateToggle(parent, config)
         updateBindBtn()
 
         BindBtn.MouseEnter:Connect(function()
-            local isBound = (bindData.Key ~= nil)
+            local isBound = (bindData.Key ~= nil and bindData.Key ~= Enum.KeyCode.Unknown)
             local isUnboundWarning = (not isBound and (bindData.Type == "Toggle" or bindData.Type == "On key down" or bindData.Type == "Hold"))
-            if isBound or isUnboundWarning then
+            if isUnboundWarning then
                 BindBtn.TextColor3 = Theme.AccentHover
             else
                 BindBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
