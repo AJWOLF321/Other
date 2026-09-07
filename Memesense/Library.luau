@@ -191,6 +191,7 @@ local TabIconGlyphs = {
     ["Indicators"]    = ")",
     ["Miscellaneous"] = "6",
     ["Inventory"]     = "-",
+    ["Grenade Helper"] = "5",
     ["Configs"]       = "."
 }
 
@@ -367,17 +368,21 @@ local function getRealMousePos()
 end
 
 local function getScreenPos(gui)
-    local p = gui.AbsolutePosition
-    local inset = GuiService:GetGuiInset()
-    return Vector2.new(p.X + inset.X, p.Y + inset.Y)
+    return gui.AbsolutePosition
 end
 
 local function isPosInGui(gui, pos, pad)
     if not gui or not gui.Visible then return false end
-    local sp = getScreenPos(gui)
+    local inset = GuiService:GetGuiInset()
+    local sp = gui.AbsolutePosition + inset
     local s = gui.AbsoluteSize
     local ep = pad or 0
-    local m = UserInputService:GetMouseLocation()
+    local m = pos
+    if not m then
+        m = UserInputService:GetMouseLocation()
+    elseif typeof(m) == "Vector3" then
+        m = Vector2.new(m.X + inset.X, m.Y + inset.Y)
+    end
 
     return m.X >= (sp.X - ep) and m.X <= (sp.X + s.X + ep) and m.Y >= (sp.Y - ep) and m.Y <= (sp.Y + s.Y + ep)
 end
@@ -410,6 +415,10 @@ end
 local ActiveTab = nil
 local WeaponChevron = nil
 local ActivePopups = {}
+local ColorPickerModal = nil
+local draggingSV = false
+local draggingHue = false
+local draggingAlpha = false
 
 -- Modal Blocker to sink input and prevent hover over menu items when any dropdown is open
 local ModalBlocker = Instance.new("TextButton")
@@ -425,6 +434,9 @@ ModalBlocker.ZIndex = 490
 ModalBlocker.Parent = ScreenGui
 
 local function CloseAllPopups(preservePredicate)
+    if draggingSV or draggingHue or draggingAlpha then
+        return
+    end
     for _, item in ipairs(ActivePopups) do
         local frame = nil
         local onClose = nil
@@ -436,7 +448,9 @@ local function CloseAllPopups(preservePredicate)
         end
 
         if frame then
-            if preservePredicate and preservePredicate(frame, item) then
+            if frame == ColorPickerModal and (draggingSV or draggingHue or draggingAlpha) then
+                -- Do NOT close color picker while actively dragging SV/Hue/Alpha
+            elseif preservePredicate and preservePredicate(frame, item) then
                 -- Skip closing this preserved popup
             else
                 if frame.Parent then frame.Visible = false end
@@ -460,12 +474,22 @@ local function CloseAllPopups(preservePredicate)
     end
 end
 
-ModalBlocker.MouseButton1Down:Connect(function()
+local function handleModalBlockerClick()
+    if draggingSV or draggingHue or draggingAlpha then return end
+    local mouse = UserInputService:GetMouseLocation()
+    for _, item in ipairs(ActivePopups) do
+        local frame = (typeof(item) == "table") and item.Frame or item
+        if frame and frame:IsA("GuiObject") and frame.Visible then
+            if isPosInGui(frame, mouse, 6) then
+                return
+            end
+        end
+    end
     CloseAllPopups()
-end)
-ModalBlocker.MouseButton1Click:Connect(function()
-    CloseAllPopups()
-end)
+end
+
+ModalBlocker.MouseButton1Down:Connect(handleModalBlockerClick)
+ModalBlocker.MouseButton1Click:Connect(handleModalBlockerClick)
 
 local function makeDraggable(mainFrame, dragHandle)
     local dragging = false
@@ -1390,13 +1414,12 @@ SidebarPadding.Parent = SidebarFrame
     ╚═══════════════════════════════════════════════════════════════════════════╝
 ]]
 
-local ContentArea = Instance.new("CanvasGroup")
+local ContentArea = Instance.new("Frame")
 ContentArea.Name = "ContentArea"
 ContentArea.Size = UDim2.new(1, -SidebarWidth, 1, -50)
 ContentArea.Position = UDim2.new(0, SidebarWidth, 0, 50)
 ContentArea.BackgroundTransparency = 1
 ContentArea.BorderSizePixel = 0
-ContentArea.GroupTransparency = 0
 ContentArea.Parent = MainWindow
 
 --[[
@@ -1410,7 +1433,6 @@ ActiveTab = nil
 local isTabSwitching = false
 
 local function SelectTab(tabName)
-    if isTabSwitching then return end
     if ActiveTab and ActiveTab.Name == tabName then return end
     CloseAllPopups()
 
@@ -1432,71 +1454,41 @@ local function SelectTab(tabName)
         end
     end
 
-    -- Tween OUT (fade to 1 over 0.09s)
-    isTabSwitching = true
-    local tweenOut = TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tweenIn = TweenInfo.new(0.11, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    -- Swap tab content visibility directly so controls are guaranteed visible
+    for name, tabData in pairs(Tabs) do
+        tabData.Content.Visible = (name == tabName)
+    end
 
-    local tOut1 = TweenService:Create(HeaderCenterGroup, tweenOut, { GroupTransparency = 1 })
-    local tOut2 = TweenService:Create(ContentArea, tweenOut, { GroupTransparency = 1 })
-    tOut1:Play()
-    tOut2:Play()
-
-    task.delay(0.09, function()
-        -- Swap tab content visibility
-        for name, tabData in pairs(Tabs) do
-            tabData.Content.Visible = (name == tabName)
-        end
-
-        -- Tab-specific header configuration (Screenshots 1-5):
-        if tabName == "Players" or tabName == "Visuals" or tabName == "World" or tabName == "View" or tabName == "Miscellaneous" or tabName == "Inventory" or tabName == "Configs" then
-            HeaderCenterGroup.Visible = false
+    -- Tab-specific header configuration (Screenshots 1-5):
+    if tabName == "Players" or tabName == "Visuals" or tabName == "World" or tabName == "View" or tabName == "Miscellaneous" or tabName == "Inventory" or tabName == "Configs" or tabName == "Grenade Helper" or tabName == "Indicators" then
+        HeaderCenterGroup.Visible = false
+    else
+        HeaderCenterGroup.Visible = true
+        MasterSwitchFrame.Visible = true
+        if tabName == "Aim Assist" then
+            MasterGear.Visible = false
+            WeaponDropdownFrame.Visible = true
+            WeaponBtn.Text = "  " .. aimAssistWeaponMode
+            SubWeaponDropdownFrame.Visible = (aimAssistWeaponMode ~= "All weapons")
+            buildWeaponOptions()
+        elseif tabName == "Legitbot" then
+            MasterGear.Visible = true
+            WeaponDropdownFrame.Visible = true
+            WeaponBtn.Text = "  " .. legitbotWeaponMode
+            SubWeaponDropdownFrame.Visible = (legitbotWeaponMode ~= "All weapons")
+            buildWeaponOptions()
+        elseif tabName == "Chams" then
+            MasterGear.Visible = false
+            WeaponDropdownFrame.Visible = true
+            WeaponBtn.Text = "  " .. chamsMode
+            SubWeaponDropdownFrame.Visible = false
+            buildWeaponOptions()
         else
-            HeaderCenterGroup.Visible = true
-            MasterSwitchFrame.Visible = true
-            if tabName == "Aim Assist" then
-                MasterGear.Visible = false
-                WeaponDropdownFrame.Visible = true
-                WeaponBtn.Text = "  " .. aimAssistWeaponMode
-                SubWeaponDropdownFrame.Visible = (aimAssistWeaponMode ~= "All weapons")
-                buildWeaponOptions()
-            elseif tabName == "Legitbot" then
-                MasterGear.Visible = true
-                WeaponDropdownFrame.Visible = true
-                WeaponBtn.Text = "  " .. legitbotWeaponMode
-                SubWeaponDropdownFrame.Visible = (legitbotWeaponMode ~= "All weapons")
-                buildWeaponOptions()
-            elseif tabName == "Chams" then
-                MasterGear.Visible = false
-                WeaponDropdownFrame.Visible = true
-                WeaponBtn.Text = "  " .. chamsMode
-                SubWeaponDropdownFrame.Visible = false
-                buildWeaponOptions()
-            elseif tabName == "Items" then
-                MasterGear.Visible = false
-                WeaponDropdownFrame.Visible = false
-                SubWeaponDropdownFrame.Visible = false
-            elseif tabName == "Indicators" then
-                MasterGear.Visible = false
-                WeaponDropdownFrame.Visible = false
-                SubWeaponDropdownFrame.Visible = false
-            else
-                MasterGear.Visible = false
-                WeaponDropdownFrame.Visible = false
-                SubWeaponDropdownFrame.Visible = false
-            end
+            MasterGear.Visible = false
+            WeaponDropdownFrame.Visible = false
+            SubWeaponDropdownFrame.Visible = false
         end
-
-        -- Tween IN (fade to 0 over 0.11s)
-        local tIn1 = TweenService:Create(HeaderCenterGroup, tweenIn, { GroupTransparency = 0 })
-        local tIn2 = TweenService:Create(ContentArea, tweenIn, { GroupTransparency = 0 })
-        tIn1:Play()
-        tIn2:Play()
-
-        task.delay(0.11, function()
-            isTabSwitching = false
-        end)
-    end)
+    end
 end
 
 local function CreateTab(name, orderIndex)
@@ -1644,7 +1636,7 @@ local Controls = {}
     ═══════════════════════════════════════════════════════════════════════════
 ]]
 
-local ColorPickerModal = Instance.new("Frame")
+ColorPickerModal = Instance.new("Frame")
 ColorPickerModal.Name = "MemeSense_ColorPicker"
 ColorPickerModal.Size = UDim2.new(0, 316, 0, 266)
 ColorPickerModal.BackgroundColor3 = Color3.fromRGB(19, 20, 24)
@@ -2036,33 +2028,43 @@ HexInput.FocusLost:Connect(function()
     end
 end)
 
-local draggingSV = false
-local draggingHue = false
-local draggingAlpha = false
+draggingSV = false
+draggingHue = false
+draggingAlpha = false
 
 local function handleSVInput(pos)
-    local abs = SVBox.AbsolutePosition
+    local inset = GuiService:GetGuiInset()
+    local m = pos or UserInputService:GetMouseLocation()
+    local mx = (typeof(m) == "Vector3") and (m.X + inset.X) or m.X
+    local my = (typeof(m) == "Vector3") and (m.Y + inset.Y) or m.Y
+    local abs = SVBox.AbsolutePosition + inset
     local sz = SVBox.AbsoluteSize
-    local relX = math.clamp(pos.X - abs.X, 0, sz.X)
-    local relY = math.clamp(pos.Y - abs.Y, 0, sz.Y)
+    local relX = math.clamp(mx - abs.X, 0, sz.X)
+    local relY = math.clamp(my - abs.Y, 0, sz.Y)
     curS = relX / sz.X
     curV = 1 - (relY / sz.Y)
     syncColorPickerUI(true)
 end
 
 local function handleHueInput(pos)
-    local abs = HueBar.AbsolutePosition
+    local inset = GuiService:GetGuiInset()
+    local m = pos or UserInputService:GetMouseLocation()
+    local my = (typeof(m) == "Vector3") and (m.Y + inset.Y) or m.Y
+    local abs = HueBar.AbsolutePosition + inset
     local sz = HueBar.AbsoluteSize
-    local relY = math.clamp(pos.Y - abs.Y, 0, sz.Y)
-    curH = relY / sz.Y
+    local relY = math.clamp(my - abs.Y, 0, sz.Y)
+    curH = math.clamp(relY / sz.Y, 0, 1)
     syncColorPickerUI(true)
 end
 
 local function handleAlphaInput(pos)
-    local abs = AlphaBar.AbsolutePosition
+    local inset = GuiService:GetGuiInset()
+    local m = pos or UserInputService:GetMouseLocation()
+    local my = (typeof(m) == "Vector3") and (m.Y + inset.Y) or m.Y
+    local abs = AlphaBar.AbsolutePosition + inset
     local sz = AlphaBar.AbsoluteSize
-    local relY = math.clamp(pos.Y - abs.Y, 0, sz.Y)
-    curA = 1 - (relY / sz.Y)
+    local relY = math.clamp(my - abs.Y, 0, sz.Y)
+    curA = math.clamp(1 - (relY / sz.Y), 0, 1)
     syncColorPickerUI(true)
 end
 
@@ -2111,14 +2113,16 @@ table.insert(Connections, cpEndConn)
 
 -- Click anywhere outside modal to close
 local cpClickOutsideConn = UserInputService.InputBegan:Connect(function(input, processed)
-    if not ColorPickerModal.Visible then return end
+    if not ColorPickerModal or not ColorPickerModal.Visible then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        if draggingSV or draggingHue or draggingAlpha or (os.clock() - lastPopoverDragTime < 0.2) then return end
-        local pos = input.Position
-        if isPosInGui(ColorPickerModal, pos) then
+        if draggingSV or draggingHue or draggingAlpha or (os.clock() - lastPopoverDragTime < 0.2) then
             return
         end
-        if activeAnchorGui and isPosInGui(activeAnchorGui, pos) then
+        local pos = input.Position
+        if isPosInGui(ColorPickerModal, pos, 6) then
+            return
+        end
+        if activeAnchorGui and isPosInGui(activeAnchorGui, pos, 6) then
             return
         end
         ColorPickerModal.Visible = false
@@ -2372,6 +2376,444 @@ local svOutsideConn = UserInputService.InputBegan:Connect(function(input)
 end)
 table.insert(Connections, svOutsideConn)
 
+--[[
+    ═══════════════════════════════════════════════════════════════════════════
+                         GRENADE TRACERS POPOVERS
+    ═══════════════════════════════════════════════════════════════════════════
+]]
+
+local GrenadeTypes = {
+    { Id = "decoy", Name = "Decoy grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "flash", Name = "Flashbang", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "smoke", Name = "Smoke grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "incendiary", Name = "Incendiary grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+    { Id = "he", Name = "High explosive grenade", Enabled = true, Color = Color3.fromRGB(255, 255, 255), Time = 5.00, Thickness = 1.10 },
+}
+
+local GrenadeTracersPopover = Instance.new("Frame")
+GrenadeTracersPopover.Name = "GrenadeTracersPopover"
+GrenadeTracersPopover.Size = UDim2.new(0, 205, 0, 142)
+GrenadeTracersPopover.BackgroundColor3 = Color3.fromRGB(19, 20, 24)
+GrenadeTracersPopover.BorderSizePixel = 0
+GrenadeTracersPopover.Visible = false
+GrenadeTracersPopover.ZIndex = 520
+GrenadeTracersPopover.Parent = PopupsLayer
+createCorner(GrenadeTracersPopover, 2)
+
+local gtPadding = Instance.new("UIPadding")
+gtPadding.PaddingTop = UDim.new(0, 6)
+gtPadding.PaddingBottom = UDim.new(0, 6)
+gtPadding.PaddingLeft = UDim.new(0, 8)
+gtPadding.PaddingRight = UDim.new(0, 8)
+gtPadding.Parent = GrenadeTracersPopover
+
+local gtList = Instance.new("UIListLayout")
+gtList.SortOrder = Enum.SortOrder.LayoutOrder
+gtList.Padding = UDim.new(0, 2)
+gtList.Parent = GrenadeTracersPopover
+
+local GrenadeSettingsPopover = Instance.new("Frame")
+GrenadeSettingsPopover.Name = "GrenadeSettingsPopover"
+GrenadeSettingsPopover.Size = UDim2.new(0, 195, 0, 116)
+GrenadeSettingsPopover.BackgroundColor3 = Color3.fromRGB(19, 20, 24)
+GrenadeSettingsPopover.BorderSizePixel = 0
+GrenadeSettingsPopover.Visible = false
+GrenadeSettingsPopover.ZIndex = 530
+GrenadeSettingsPopover.Parent = PopupsLayer
+createCorner(GrenadeSettingsPopover, 2)
+
+local gsPadding = Instance.new("UIPadding")
+gsPadding.PaddingTop = UDim.new(0, 6)
+gsPadding.PaddingBottom = UDim.new(0, 6)
+gsPadding.PaddingLeft = UDim.new(0, 10)
+gsPadding.PaddingRight = UDim.new(0, 10)
+gsPadding.Parent = GrenadeSettingsPopover
+
+local activeGrenadeItem = GrenadeTypes[1]
+
+local ColorRow = Instance.new("Frame")
+ColorRow.Name = "ColorRow"
+ColorRow.Size = UDim2.new(1, 0, 0, 22)
+ColorRow.Position = UDim2.new(0, 0, 0, 4)
+ColorRow.BackgroundTransparency = 1
+ColorRow.Parent = GrenadeSettingsPopover
+
+local ColorLbl = Instance.new("TextLabel")
+ColorLbl.Name = "ColorLabel"
+ColorLbl.Size = UDim2.new(0.6, 0, 1, 0)
+ColorLbl.BackgroundTransparency = 1
+ColorLbl.Text = "Color"
+ColorLbl.TextColor3 = Theme.TextActive
+ColorLbl.TextSize = 13
+ColorLbl.Font = Theme.FontBold
+ColorLbl.TextXAlignment = Enum.TextXAlignment.Left
+ColorLbl.Parent = ColorRow
+
+local ColorSwatch = Instance.new("TextButton")
+ColorSwatch.Name = "Swatch"
+ColorSwatch.Size = UDim2.new(0, 26, 0, 14)
+ColorSwatch.Position = UDim2.new(1, -26, 0.5, -7)
+ColorSwatch.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ColorSwatch.BorderSizePixel = 0
+ColorSwatch.AutoButtonColor = false
+ColorSwatch.Text = ""
+ColorSwatch.Parent = ColorRow
+createCorner(ColorSwatch, 3)
+
+ColorSwatch.MouseButton1Click:Connect(function()
+    if not activeGrenadeItem then return end
+    Controls:OpenColorPicker(ColorSwatch, activeGrenadeItem.Color, 1, function(newCol)
+        activeGrenadeItem.Color = newCol
+        ColorSwatch.BackgroundColor3 = newCol
+    end)
+end)
+
+local TimeRow = Instance.new("Frame")
+TimeRow.Name = "TimeRow"
+TimeRow.Size = UDim2.new(1, 0, 0, 36)
+TimeRow.Position = UDim2.new(0, 0, 0, 32)
+TimeRow.BackgroundTransparency = 1
+TimeRow.Parent = GrenadeSettingsPopover
+
+local TimeLbl = Instance.new("TextLabel")
+TimeLbl.Name = "Label"
+TimeLbl.Size = UDim2.new(0.6, 0, 0, 16)
+TimeLbl.Position = UDim2.new(0, 0, 0, 0)
+TimeLbl.BackgroundTransparency = 1
+TimeLbl.Text = "Time"
+TimeLbl.TextColor3 = Theme.TextActive
+TimeLbl.TextSize = 13
+TimeLbl.Font = Theme.FontBold
+TimeLbl.TextXAlignment = Enum.TextXAlignment.Left
+TimeLbl.Parent = TimeRow
+
+local TimeVal = Instance.new("TextLabel")
+TimeVal.Name = "Value"
+TimeVal.Size = UDim2.new(0.4, 0, 0, 16)
+TimeVal.Position = UDim2.new(0.6, 0, 0, 0)
+TimeVal.BackgroundTransparency = 1
+TimeVal.Text = "5.00 s"
+TimeVal.TextColor3 = Theme.TextActive
+TimeVal.TextSize = 12
+TimeVal.Font = Theme.FontMedium
+TimeVal.TextXAlignment = Enum.TextXAlignment.Right
+TimeVal.Parent = TimeRow
+
+local TimeTrack = Instance.new("TextButton")
+TimeTrack.Name = "Track"
+TimeTrack.Size = UDim2.new(1, 0, 0, 6)
+TimeTrack.Position = UDim2.new(0, 0, 0, 22)
+TimeTrack.BackgroundColor3 = Color3.fromRGB(35, 37, 44)
+TimeTrack.BorderSizePixel = 0
+TimeTrack.AutoButtonColor = false
+TimeTrack.Text = ""
+TimeTrack.Parent = TimeRow
+createCorner(TimeTrack, 2)
+
+local TimeFill = Instance.new("Frame")
+TimeFill.Name = "Fill"
+TimeFill.Size = UDim2.new((5.00 - 0.5) / 9.5, 0, 1, 0)
+TimeFill.BackgroundColor3 = Color3.fromRGB(120, 125, 135)
+TimeFill.BorderSizePixel = 0
+TimeFill.Parent = TimeTrack
+createCorner(TimeFill, 2)
+
+local function updateTimeFromInput(input)
+    if not activeGrenadeItem then return end
+    local rel = math.clamp((input.Position.X - TimeTrack.AbsolutePosition.X) / math.max(1, TimeTrack.AbsoluteSize.X), 0, 1)
+    local val = 0.5 + rel * (10.0 - 0.5)
+    activeGrenadeItem.Time = val
+    TimeFill.Size = UDim2.new(rel, 0, 1, 0)
+    TimeVal.Text = string.format("%.2f s", val)
+end
+
+local isDraggingTime = false
+TimeTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingTime = true
+        updateTimeFromInput(input)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingTime = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if isDraggingTime and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateTimeFromInput(input)
+    end
+end)
+
+local ThickRow = Instance.new("Frame")
+ThickRow.Name = "ThickRow"
+ThickRow.Size = UDim2.new(1, 0, 0, 36)
+ThickRow.Position = UDim2.new(0, 0, 0, 72)
+ThickRow.BackgroundTransparency = 1
+ThickRow.Parent = GrenadeSettingsPopover
+
+local ThickLbl = Instance.new("TextLabel")
+ThickLbl.Name = "Label"
+ThickLbl.Size = UDim2.new(0.6, 0, 0, 16)
+ThickLbl.Position = UDim2.new(0, 0, 0, 0)
+ThickLbl.BackgroundTransparency = 1
+ThickLbl.Text = "Thickness"
+ThickLbl.TextColor3 = Theme.TextActive
+ThickLbl.TextSize = 13
+ThickLbl.Font = Theme.FontBold
+ThickLbl.TextXAlignment = Enum.TextXAlignment.Left
+ThickLbl.Parent = ThickRow
+
+local ThickVal = Instance.new("TextLabel")
+ThickVal.Name = "Value"
+ThickVal.Size = UDim2.new(0.4, 0, 0, 16)
+ThickVal.Position = UDim2.new(0.6, 0, 0, 0)
+ThickVal.BackgroundTransparency = 1
+ThickVal.Text = "1.10"
+ThickVal.TextColor3 = Theme.TextActive
+ThickVal.TextSize = 12
+ThickVal.Font = Theme.FontMedium
+ThickVal.TextXAlignment = Enum.TextXAlignment.Right
+ThickVal.Parent = ThickRow
+
+local ThickTrack = Instance.new("TextButton")
+ThickTrack.Name = "Track"
+ThickTrack.Size = UDim2.new(1, 0, 0, 6)
+ThickTrack.Position = UDim2.new(0, 0, 0, 22)
+ThickTrack.BackgroundColor3 = Color3.fromRGB(35, 37, 44)
+ThickTrack.BorderSizePixel = 0
+ThickTrack.AutoButtonColor = false
+ThickTrack.Text = ""
+ThickTrack.Parent = ThickRow
+createCorner(ThickTrack, 2)
+
+local ThickFill = Instance.new("Frame")
+ThickFill.Name = "Fill"
+ThickFill.Size = UDim2.new((1.10 - 0.1) / 4.9, 0, 1, 0)
+ThickFill.BackgroundColor3 = Color3.fromRGB(120, 125, 135)
+ThickFill.BorderSizePixel = 0
+ThickFill.Parent = ThickTrack
+createCorner(ThickFill, 2)
+
+local function updateThickFromInput(input)
+    if not activeGrenadeItem then return end
+    local rel = math.clamp((input.Position.X - ThickTrack.AbsolutePosition.X) / math.max(1, ThickTrack.AbsoluteSize.X), 0, 1)
+    local val = 0.1 + rel * (5.0 - 0.1)
+    activeGrenadeItem.Thickness = val
+    ThickFill.Size = UDim2.new(rel, 0, 1, 0)
+    ThickVal.Text = string.format("%.2f", val)
+end
+
+local isDraggingThick = false
+ThickTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingThick = true
+        updateThickFromInput(input)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingThick = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if isDraggingThick and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateThickFromInput(input)
+    end
+end)
+
+local function openGrenadeSettings(gItem)
+    activeGrenadeItem = gItem
+    ColorSwatch.BackgroundColor3 = gItem.Color
+    TimeVal.Text = string.format("%.2f s", gItem.Time)
+    TimeFill.Size = UDim2.new(math.clamp((gItem.Time - 0.5) / 9.5, 0, 1), 0, 1, 0)
+    ThickVal.Text = string.format("%.2f", gItem.Thickness)
+    ThickFill.Size = UDim2.new(math.clamp((gItem.Thickness - 0.1) / 4.9, 0, 1), 0, 1, 0)
+
+    local mousePos = getRealMousePos()
+    local subX = mousePos.X + 8
+    local subY = mousePos.Y - 4
+    local cam = workspace.CurrentCamera
+    local viewSize = cam and cam.ViewportSize or Vector2.new(1920, 1080)
+    if subX + 195 > viewSize.X - 8 then
+        subX = math.max(8, viewSize.X - 195 - 8)
+    end
+    if subY + 116 > viewSize.Y - 8 then
+        subY = math.max(8, viewSize.Y - 116 - 8)
+    end
+    if subY < 8 then subY = 8 end
+
+    GrenadeSettingsPopover.Position = UDim2.new(0, subX, 0, subY)
+    GrenadeSettingsPopover.Visible = true
+end
+
+local tracerClickables = {}
+
+local function buildGrenadeRow(idx, gData)
+    local gRow = Instance.new("Frame")
+    gRow.Name = "Row_" .. gData.Id
+    gRow.Size = UDim2.new(1, 0, 0, 24)
+    gRow.BackgroundTransparency = 1
+    gRow.LayoutOrder = idx
+    gRow.Parent = GrenadeTracersPopover
+
+    local gBox = Instance.new("Frame")
+    gBox.Name = "Box"
+    gBox.Size = UDim2.new(0, 14, 0, 14)
+    gBox.Position = UDim2.new(0, 0, 0.5, -7)
+    gBox.BackgroundColor3 = gData.Enabled and Theme.CheckboxChecked or Theme.CheckboxOff
+    gBox.BorderSizePixel = 0
+    gBox.Parent = gRow
+    createCorner(gBox, 2)
+
+    local gCheck = Instance.new("TextLabel")
+    gCheck.Name = "Check"
+    gCheck.Size = UDim2.new(1, 0, 1, 0)
+    gCheck.BackgroundTransparency = 1
+    if GuiIconsFont then gCheck.FontFace = GuiIconsFont end
+    gCheck.Text = "X"
+    gCheck.TextColor3 = Color3.fromRGB(255, 255, 255)
+    gCheck.TextSize = 11
+    gCheck.Visible = gData.Enabled
+    gCheck.Parent = gBox
+
+    local gLabel = Instance.new("TextButton")
+    gLabel.Name = "Label"
+    gLabel.Size = UDim2.new(1, -44, 1, 0)
+    gLabel.Position = UDim2.new(0, 22, 0, 0)
+    gLabel.BackgroundTransparency = 1
+    gLabel.Text = gData.Name
+    gLabel.TextColor3 = gData.Enabled and Theme.TextActive or Theme.TextDim
+    gLabel.TextSize = 12
+    gLabel.Font = Theme.FontBold
+    gLabel.TextXAlignment = Enum.TextXAlignment.Left
+    gLabel.AutoButtonColor = false
+    gLabel.Parent = gRow
+
+    local gListBtn = Instance.new("TextButton")
+    gListBtn.Name = "ListBtn"
+    gListBtn.Size = UDim2.new(0, 16, 0, 16)
+    gListBtn.Position = UDim2.new(1, -16, 0.5, -8)
+    gListBtn.BackgroundTransparency = 1
+    if GuiIconsFont then
+        gListBtn.FontFace = GuiIconsFont
+        gListBtn.Text = "6"
+    else
+        gListBtn.Font = Theme.FontBold
+        gListBtn.Text = "≡"
+    end
+    gListBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    gListBtn.TextSize = 13
+    gListBtn.AutoButtonColor = false
+    gListBtn.Parent = gRow
+
+    local function toggleRow()
+        if os.clock() - lastPopoverDragTime < 0.12 then return end
+        gData.Enabled = not gData.Enabled
+        gBox.BackgroundColor3 = gData.Enabled and Theme.CheckboxChecked or Theme.CheckboxOff
+        gCheck.Visible = gData.Enabled
+        gLabel.TextColor3 = gData.Enabled and Theme.TextActive or Theme.TextDim
+    end
+
+    local gTrigger = Instance.new("TextButton")
+    gTrigger.Name = "Trigger"
+    gTrigger.Size = UDim2.new(0, 14, 0, 14)
+    gTrigger.Position = UDim2.new(0, 0, 0.5, -7)
+    gTrigger.BackgroundTransparency = 1
+    gTrigger.Text = ""
+    gTrigger.Parent = gRow
+    gTrigger.MouseButton1Click:Connect(toggleRow)
+    gLabel.MouseButton1Click:Connect(toggleRow)
+
+    table.insert(tracerClickables, gTrigger)
+    table.insert(tracerClickables, gLabel)
+    table.insert(tracerClickables, gListBtn)
+
+    gListBtn.MouseButton1Click:Connect(function()
+        if GrenadeSettingsPopover.Visible and activeGrenadeItem == gData then
+            GrenadeSettingsPopover.Visible = false
+        else
+            openGrenadeSettings(gData)
+        end
+    end)
+end
+
+for idx, gData in ipairs(GrenadeTypes) do
+    buildGrenadeRow(idx, gData)
+end
+
+table.insert(ActivePopups, {
+    Frame = GrenadeTracersPopover,
+    OnClose = function()
+        GrenadeSettingsPopover.Visible = false
+        activeGrenadeAnchor = nil
+    end
+})
+table.insert(ActivePopups, GrenadeSettingsPopover)
+
+makePopoverDraggable(GrenadeTracersPopover, function(pos)
+    for _, elem in ipairs(tracerClickables) do
+        if elem and isPosInGui(elem, pos) then return true end
+    end
+    return false
+end)
+
+makePopoverDraggable(GrenadeSettingsPopover, function(pos)
+    if isPosInGui(ColorSwatch, pos) then return true end
+    if isPosInGui(TimeTrack, pos, 4) then return true end
+    if isPosInGui(ThickTrack, pos, 4) then return true end
+    return false
+end)
+
+local activeGrenadeAnchor = nil
+
+function Controls:OpenGrenadeTracers(btn)
+    activeGrenadeAnchor = btn
+    if GrenadeTracersPopover.Visible then
+        GrenadeTracersPopover.Visible = false
+        GrenadeSettingsPopover.Visible = false
+    else
+        CloseAllPopups()
+        local mousePos = getRealMousePos()
+        local posX = mousePos.X + 8
+        local posY = mousePos.Y - 4
+        local cam = workspace.CurrentCamera
+        local viewSize = cam and cam.ViewportSize or Vector2.new(1920, 1080)
+        if posX + 205 > viewSize.X - 8 then
+            posX = math.max(8, viewSize.X - 205 - 8)
+        end
+        if posY + 142 > viewSize.Y - 8 then
+            posY = math.max(8, viewSize.Y - 142 - 8)
+        end
+        if posY < 8 then posY = 8 end
+        GrenadeTracersPopover.Position = UDim2.new(0, posX, 0, posY)
+        GrenadeTracersPopover.Visible = true
+    end
+end
+
+local gtOutsideConn = UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if not GrenadeTracersPopover.Visible and not GrenadeSettingsPopover.Visible then return end
+        if os.clock() - lastPopoverDragTime < 0.2 then return end
+        local pos = input.Position
+        if isPosInGui(GrenadeTracersPopover, pos) then
+            return
+        end
+        if isPosInGui(GrenadeSettingsPopover, pos) then
+            return
+        end
+        if activeGrenadeAnchor and isPosInGui(activeGrenadeAnchor, pos) then
+            return
+        end
+        if ColorPickerModal and ColorPickerModal.Visible and isPosInGui(ColorPickerModal, pos) then
+            return
+        end
+        GrenadeSettingsPopover.Visible = false
+        GrenadeTracersPopover.Visible = false
+    end
+end)
+table.insert(Connections, gtOutsideConn)
+
 -- Section Header Label (Centered over column)
 function Controls:CreateSectionHeader(parent, title, order)
     local HeaderLabel = Instance.new("TextLabel")
@@ -2460,7 +2902,7 @@ function Controls:CreateToggle(parent, config)
     Label.Position = UDim2.new(0, 28, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = name
-    Label.TextColor3 = default and Theme.TextActive or Theme.TextDim
+    Label.TextColor3 = config.TextColor or (default and Theme.TextActive or Theme.TextDim)
     Label.TextSize = 13
     Label.Font = Theme.FontBold
     Label.TextXAlignment = Enum.TextXAlignment.Left
@@ -2472,11 +2914,11 @@ function Controls:CreateToggle(parent, config)
         if state then
             Box.BackgroundColor3 = Theme.CheckboxChecked
             CheckIcon.Visible = true
-            Label.TextColor3 = Theme.TextActive
+            Label.TextColor3 = config.TextColor or Theme.TextActive
         else
             Box.BackgroundColor3 = Theme.CheckboxOff
             CheckIcon.Visible = false
-            Label.TextColor3 = Theme.TextDim
+            Label.TextColor3 = config.TextColor or Theme.TextDim
         end
         if callback then
             pcall(callback, state)
@@ -4724,18 +5166,19 @@ do
             end
             if hasOpenPopup then
                 task.delay(0.1, function()
+                    if draggingSV or draggingHue or draggingAlpha then return end
                     local mousePos = UserInputService:GetMouseLocation()
                     local clickedOnPopup = false
                     for _, item in ipairs(ActivePopups) do
                         local frame = (typeof(item) == "table") and item.Frame or item
                         if frame and frame:IsA("GuiObject") and frame.Visible then
-                            if isPosInGui(frame, mousePos) then
+                            if isPosInGui(frame, mousePos, 6) then
                                 clickedOnPopup = true
                                 break
                             end
                         end
                     end
-                    if not clickedOnPopup and not (os.clock() - lastPopoverDragTime < 0.2) then
+                    if not clickedOnPopup and not (os.clock() - lastPopoverDragTime < 0.2) and not (draggingSV or draggingHue or draggingAlpha) then
                         CloseAllPopups()
                     end
                 end)
