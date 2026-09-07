@@ -738,115 +738,6 @@ MasterLabel.TextXAlignment = Enum.TextXAlignment.Left
 MasterLabel.AutoButtonColor = false
 MasterLabel.Parent = MasterSwitchFrame
 
--- Gear Icon "0" next to Master switch (Pure white icon, opens config popup matching Screenshot 2)
-local MasterGear = Instance.new("TextButton")
-MasterGear.Name = "Gear"
-MasterGear.Size = UDim2.new(0, 16, 0, 16)
-MasterGear.Position = UDim2.new(0, 114, 0.5, -8)
-MasterGear.BackgroundTransparency = 1
-MasterGear.FontFace = GuiIconsFont
-MasterGear.Text = "0"
-MasterGear.TextSize = 16
-MasterGear.TextColor3 = Color3.fromRGB(255, 255, 255)
-MasterGear.AutoButtonColor = false
-MasterGear.Visible = false
-MasterGear.Parent = MasterSwitchFrame
-
-MasterGear.MouseEnter:Connect(function()
-    MasterGear.TextColor3 = Color3.fromRGB(210, 210, 210)
-end)
-MasterGear.MouseLeave:Connect(function()
-    MasterGear.TextColor3 = Color3.fromRGB(255, 255, 255)
-end)
-
--- Gear Popover Modal (Screenshot 2: "Copy config" & "Paste config")
-do
-    local GearPopover = Instance.new("Frame")
-    GearPopover.Name = "GearPopover"
-    GearPopover.Size = UDim2.new(0, 140, 0, 72)
-    GearPopover.BackgroundColor3 = Color3.fromRGB(20, 21, 24)
-    GearPopover.BorderSizePixel = 0
-    GearPopover.Visible = false
-    GearPopover.ZIndex = 125
-    GearPopover.Parent = PopupsLayer
-    createCorner(GearPopover, 3)
-    table.insert(ActivePopups, GearPopover)
-
-    local GearPad = Instance.new("UIPadding")
-    GearPad.PaddingTop = UDim.new(0, 5)
-    GearPad.PaddingBottom = UDim.new(0, 5)
-    GearPad.PaddingLeft = UDim.new(0, 5)
-    GearPad.PaddingRight = UDim.new(0, 5)
-    GearPad.Parent = GearPopover
-
-    local GearList = Instance.new("UIListLayout")
-    GearList.Padding = UDim.new(0, 4)
-    GearList.SortOrder = Enum.SortOrder.LayoutOrder
-    GearList.Parent = GearPopover
-
-    local CopyBtn = Instance.new("TextButton")
-    CopyBtn.Name = "CopyConfig"
-    CopyBtn.Size = UDim2.new(1, 0, 0, 28)
-    CopyBtn.BackgroundColor3 = Color3.fromRGB(30, 31, 36)
-    CopyBtn.BorderSizePixel = 0
-    CopyBtn.AutoButtonColor = false
-    CopyBtn.Text = "Copy config"
-    CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CopyBtn.TextSize = 12
-    CopyBtn.Font = Theme.FontMedium
-    CopyBtn.LayoutOrder = 1
-    CopyBtn.ZIndex = 126
-    CopyBtn.Parent = GearPopover
-    createCorner(CopyBtn, 3)
-
-    CopyBtn.MouseEnter:Connect(function() CopyBtn.BackgroundColor3 = Color3.fromRGB(40, 42, 48) end)
-    CopyBtn.MouseLeave:Connect(function() CopyBtn.BackgroundColor3 = Color3.fromRGB(30, 31, 36) end)
-    CopyBtn.MouseButton1Click:Connect(function()
-        if setclipboard then
-            pcall(setclipboard, '{"MemeSense": true, "Version": "CS2"}')
-        end
-        CopyBtn.Text = "Copied!"
-        task.delay(1, function() CopyBtn.Text = "Copy config" end)
-    end)
-
-    local PasteBtn = Instance.new("TextButton")
-    PasteBtn.Name = "PasteConfig"
-    PasteBtn.Size = UDim2.new(1, 0, 0, 28)
-    PasteBtn.BackgroundColor3 = Color3.fromRGB(30, 31, 36)
-    PasteBtn.BorderSizePixel = 0
-    PasteBtn.AutoButtonColor = false
-    PasteBtn.Text = "Paste config"
-    PasteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    PasteBtn.TextSize = 12
-    PasteBtn.Font = Theme.FontMedium
-    PasteBtn.LayoutOrder = 2
-    PasteBtn.ZIndex = 126
-    PasteBtn.Parent = GearPopover
-    createCorner(PasteBtn, 3)
-
-    PasteBtn.MouseEnter:Connect(function() PasteBtn.BackgroundColor3 = Color3.fromRGB(40, 42, 48) end)
-    PasteBtn.MouseLeave:Connect(function() PasteBtn.BackgroundColor3 = Color3.fromRGB(30, 31, 36) end)
-    PasteBtn.MouseButton1Click:Connect(function()
-        if getclipboard then
-            pcall(getclipboard)
-        end
-        PasteBtn.Text = "Pasted!"
-        task.delay(1, function() PasteBtn.Text = "Paste config" end)
-    end)
-
-    MasterGear.MouseButton1Click:Connect(function()
-        local isOpen = GearPopover.Visible
-        CloseAllPopups()
-        if not isOpen then
-            local screenPos = getScreenPos(MasterGear)
-            local absSize = MasterGear.AbsoluteSize
-            GearPopover.Position = UDim2.new(0, screenPos.X - 10, 0, screenPos.Y + absSize.Y + 2)
-            GearPopover.Visible = true
-            if ModalBlocker then ModalBlocker.Visible = true end
-        end
-    end)
-end
-
 local masterState = false
 local function toggleMaster(newState)
     masterState = (newState ~= nil) and newState or (not masterState)
@@ -1438,7 +1329,6 @@ local function SelectTab(tabName)
     CloseAllPopups()
 
     -- Immediate tab button state update
-    MasterGear.Visible = (tabName == "Legitbot")
     for name, tabData in pairs(Tabs) do
         local isSelected = (name == tabName)
         if isSelected then
@@ -1467,25 +1357,21 @@ local function SelectTab(tabName)
         HeaderCenterGroup.Visible = true
         MasterSwitchFrame.Visible = true
         if tabName == "Aim Assist" then
-            MasterGear.Visible = false
             WeaponDropdownFrame.Visible = true
             WeaponBtn.Text = "  " .. aimAssistWeaponMode
             SubWeaponDropdownFrame.Visible = (aimAssistWeaponMode ~= "All weapons")
             buildWeaponOptions()
         elseif tabName == "Legitbot" then
-            MasterGear.Visible = true
             WeaponDropdownFrame.Visible = true
             WeaponBtn.Text = "  " .. legitbotWeaponMode
             SubWeaponDropdownFrame.Visible = (legitbotWeaponMode ~= "All weapons")
             buildWeaponOptions()
         elseif tabName == "Chams" then
-            MasterGear.Visible = false
             WeaponDropdownFrame.Visible = true
             WeaponBtn.Text = "  " .. chamsMode
             SubWeaponDropdownFrame.Visible = false
             buildWeaponOptions()
         else
-            MasterGear.Visible = false
             WeaponDropdownFrame.Visible = false
             SubWeaponDropdownFrame.Visible = false
         end
