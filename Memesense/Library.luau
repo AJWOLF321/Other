@@ -372,15 +372,14 @@ end
 
 local function isPosInGui(gui, pos, pad)
     if not gui or not gui.Visible then return false end
-    local inset = GuiService:GetGuiInset()
-    local sp = gui.AbsolutePosition + inset
+    local sp = gui.AbsolutePosition
     local s = gui.AbsoluteSize
     local ep = pad or 0
     local m = pos
     if not m then
         m = UserInputService:GetMouseLocation()
     elseif typeof(m) == "Vector3" then
-        m = Vector2.new(m.X + inset.X, m.Y + inset.Y)
+        m = Vector2.new(m.X, m.Y)
     end
 
     return m.X >= (sp.X - ep) and m.X <= (sp.X + s.X + ep) and m.Y >= (sp.Y - ep) and m.Y <= (sp.Y + s.Y + ep)
@@ -484,7 +483,7 @@ local function handleModalBlockerClick()
                 return
             end
             for _, desc in ipairs(frame:GetDescendants()) do
-                if desc:IsA("GuiObject") and desc.Visible and desc.Name == "TypePopover" then
+                if desc:IsA("GuiObject") and desc.Name == "TypePopover" then
                     if isPosInGui(desc, mouse, 6) then
                         return
                     end
@@ -537,7 +536,6 @@ local function makeDraggable(mainFrame, dragHandle)
 end
 
 local lastPopoverDragTime = 0
-local lastTypeSelectTime = 0
 
 local function makePopoverDraggable(frame, isExcluded)
     local dragging = false
@@ -3698,25 +3696,33 @@ function Controls:CreateToggle(parent, config)
             createCorner(TBtn, 2)
 
             TBtn.MouseEnter:Connect(function()
-                if tOpt ~= bindData.Type and not (bindData.Type == "Always on" and tOpt == "Always On") then
+                local isSel = (tOpt == bindData.Type or (bindData.Type == "Always on" and tOpt == "Always On"))
+                if not isSel then
                     TBtn.TextColor3 = Color3.fromRGB(195, 200, 210)
+                else
+                    TBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
             TBtn.MouseLeave:Connect(function()
-                if tOpt ~= bindData.Type and not (bindData.Type == "Always on" and tOpt == "Always On") then
+                local isSel = (tOpt == bindData.Type or (bindData.Type == "Always on" and tOpt == "Always On"))
+                if not isSel then
                     TBtn.TextColor3 = Color3.fromRGB(130, 134, 145)
+                else
+                    TBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
             local function selectType()
                 lastTypeSelectTime = os.clock()
                 bindData.Type = tOpt
                 TypeText.Text = tOpt
-                TypePopover.Visible = false
-                TypeBottomCover.Visible = false
-                TypeChevron.Text = "C"
                 updateTypeOptionColors()
                 updateBindBtn()
                 updatePopoverLayout()
+                task.defer(function()
+                    TypePopover.Visible = false
+                    TypeBottomCover.Visible = false
+                    TypeChevron.Text = "C"
+                end)
             end
             TBtn.MouseButton1Down:Connect(selectType)
             TBtn.MouseButton1Click:Connect(selectType)
@@ -3726,6 +3732,9 @@ function Controls:CreateToggle(parent, config)
             TypePopover.Visible = not TypePopover.Visible
             TypeBottomCover.Visible = TypePopover.Visible
             TypeChevron.Text = TypePopover.Visible and "B" or "C"
+            if TypePopover.Visible then
+                updateTypeOptionColors()
+            end
         end)
 
         local KeyBtn = Instance.new("TextButton")
