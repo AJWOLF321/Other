@@ -1334,7 +1334,12 @@ local isTabSwitching = false
 
 local function SelectTab(tabName)
     if ActiveTab and ActiveTab.Name == tabName then return end
+    if isTabSwitching then return end
     CloseAllPopups()
+
+    local prevTab = ActiveTab
+    local newTab = Tabs[tabName]
+    if not newTab then return end
 
     -- Immediate tab button state update
     for name, tabData in pairs(Tabs) do
@@ -1353,37 +1358,88 @@ local function SelectTab(tabName)
         end
     end
 
-    -- Swap tab content visibility directly so controls are guaranteed visible
-    for name, tabData in pairs(Tabs) do
-        tabData.Content.Visible = (name == tabName)
-    end
-
-    -- Tab-specific header configuration (Screenshots 1-5):
-    if tabName == "Players" or tabName == "Visuals" or tabName == "World" or tabName == "View" or tabName == "Miscellaneous" or tabName == "Inventory" or tabName == "Configs" or tabName == "Indicators" then
-        HeaderCenterGroup.Visible = false
-    else
-        HeaderCenterGroup.Visible = true
-        MasterSwitchFrame.Visible = true
-        if tabName == "Aim Assist" then
-            WeaponDropdownFrame.Visible = true
-            WeaponBtn.Text = "  " .. aimAssistWeaponMode
-            SubWeaponDropdownFrame.Visible = (aimAssistWeaponMode ~= "All weapons")
-            buildWeaponOptions()
-        elseif tabName == "Legitbot" then
-            WeaponDropdownFrame.Visible = true
-            WeaponBtn.Text = "  " .. legitbotWeaponMode
-            SubWeaponDropdownFrame.Visible = (legitbotWeaponMode ~= "All weapons")
-            buildWeaponOptions()
-        elseif tabName == "Chams" then
-            WeaponDropdownFrame.Visible = true
-            WeaponBtn.Text = "  " .. chamsMode
-            SubWeaponDropdownFrame.Visible = false
-            buildWeaponOptions()
+    local function applyHeaderConfig()
+        if tabName == "Players" or tabName == "Visuals" or tabName == "World" or tabName == "View" or tabName == "Miscellaneous" or tabName == "Inventory" or tabName == "Configs" or tabName == "Indicators" then
+            HeaderCenterGroup.Visible = false
         else
-            WeaponDropdownFrame.Visible = false
-            SubWeaponDropdownFrame.Visible = false
+            HeaderCenterGroup.Visible = true
+            MasterSwitchFrame.Visible = true
+            if tabName == "Aim Assist" then
+                WeaponDropdownFrame.Visible = true
+                WeaponBtn.Text = "  " .. aimAssistWeaponMode
+                SubWeaponDropdownFrame.Visible = (aimAssistWeaponMode ~= "All weapons")
+                buildWeaponOptions()
+            elseif tabName == "Legitbot" then
+                WeaponDropdownFrame.Visible = true
+                WeaponBtn.Text = "  " .. legitbotWeaponMode
+                SubWeaponDropdownFrame.Visible = (legitbotWeaponMode ~= "All weapons")
+                buildWeaponOptions()
+            elseif tabName == "Chams" then
+                WeaponDropdownFrame.Visible = true
+                WeaponBtn.Text = "  " .. chamsMode
+                SubWeaponDropdownFrame.Visible = false
+                buildWeaponOptions()
+            elseif tabName == "Items" then
+                WeaponDropdownFrame.Visible = false
+                SubWeaponDropdownFrame.Visible = false
+            else
+                WeaponDropdownFrame.Visible = false
+                SubWeaponDropdownFrame.Visible = false
+            end
         end
     end
+
+    if not prevTab then
+        for name, tabData in pairs(Tabs) do
+            tabData.Content.Visible = (name == tabName)
+            if tabData.Content:IsA("CanvasGroup") then
+                tabData.Content.GroupTransparency = 0
+            end
+        end
+        applyHeaderConfig()
+        HeaderCenterGroup.GroupTransparency = 0
+        return
+    end
+
+    isTabSwitching = true
+    local tweenInfoOut = TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tweenInfoIn = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+    if prevTab and prevTab.Content and prevTab.Content:IsA("CanvasGroup") then
+        TweenService:Create(prevTab.Content, tweenInfoOut, { GroupTransparency = 1 }):Play()
+    end
+    if HeaderCenterGroup.Visible then
+        TweenService:Create(HeaderCenterGroup, tweenInfoOut, { GroupTransparency = 1 }):Play()
+    end
+
+    task.delay(0.09, function()
+        for name, tabData in pairs(Tabs) do
+            if name ~= tabName then
+                tabData.Content.Visible = false
+                if tabData.Content:IsA("CanvasGroup") then
+                    tabData.Content.GroupTransparency = 1
+                end
+            end
+        end
+
+        applyHeaderConfig()
+        if HeaderCenterGroup.Visible then
+            HeaderCenterGroup.GroupTransparency = 1
+            TweenService:Create(HeaderCenterGroup, tweenInfoIn, { GroupTransparency = 0 }):Play()
+        end
+
+        newTab.Content.Visible = true
+        if newTab.Content:IsA("CanvasGroup") then
+            newTab.Content.GroupTransparency = 1
+            local inTween = TweenService:Create(newTab.Content, tweenInfoIn, { GroupTransparency = 0 })
+            inTween:Play()
+            inTween.Completed:Connect(function()
+                isTabSwitching = false
+            end)
+        else
+            isTabSwitching = false
+        end
+    end)
 end
 
 local function CreateTab(name, orderIndex)
@@ -1457,11 +1513,13 @@ local function CreateTab(name, orderIndex)
         SelectTab(name)
     end)
 
-    -- Tab Content Container (Two-column layout, no vertical separator between columns)
-    local Content = Instance.new("Frame")
+    -- Tab Content Container (CanvasGroup for smooth transparency transitions between tabs)
+    local Content = Instance.new("CanvasGroup")
     Content.Name = name .. "_Content"
     Content.Size = UDim2.new(1, 0, 1, 0)
     Content.BackgroundTransparency = 1
+    Content.BorderSizePixel = 0
+    Content.GroupTransparency = 0
     Content.Visible = false
     Content.Parent = ContentArea
 
