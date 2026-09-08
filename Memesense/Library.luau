@@ -3248,7 +3248,7 @@ function Controls:CreateToggle(parent, config)
         local hasIndicatorUI = (typeof(config.Keybind) == "table" and config.Keybind.HasIndicator == true)
         local bindData = {
             Key = nil,
-            Type = "Always on",
+            Type = "Always On",
             Indicator = false,
             IndicatorText = "",
             ColorActive = Color3.fromRGB(255, 255, 255),
@@ -3262,7 +3262,9 @@ function Controls:CreateToggle(parent, config)
         elseif typeof(config.Keybind) == "EnumItem" then
             bindData.Key = config.Keybind
         end
-        bindData.Type = "Always on"
+        if not bindData.Type or bindData.Type == "Always on" then
+            bindData.Type = "Always On"
+        end
 
         local function getKeyDisplayName(k)
             if not k then return "[none]" end
@@ -3572,7 +3574,7 @@ function Controls:CreateToggle(parent, config)
         TypeText.Size = UDim2.new(1, -20, 1, 0)
         TypeText.Position = UDim2.new(0, 6, 0, 0)
         TypeText.BackgroundTransparency = 1
-        TypeText.Text = bindData.Type or "Always on"
+        TypeText.Text = (bindData.Type == "Always on" and "Always On") or bindData.Type or "Always On"
         TypeText.TextColor3 = Theme.TextActive
         TypeText.TextSize = 11
         TypeText.Font = Theme.FontMedium
@@ -3639,14 +3641,15 @@ function Controls:CreateToggle(parent, config)
         TypePopContainer.Parent = TypePopover
 
         local TypePopList = Instance.new("UIListLayout")
+        TypePopList.SortOrder = Enum.SortOrder.LayoutOrder
         TypePopList.Padding = UDim.new(0, 1)
         TypePopList.Parent = TypePopContainer
 
-        local typeOptions = { "Always on", "On key down", "Toggle", "Disable" }
+        local typeOptions = { "Always On", "On key down", "Toggle", "Disable" }
         local function updateTypeOptionColors()
             for _, child in ipairs(TypePopContainer:GetChildren()) do
                 if child:IsA("TextButton") then
-                    local isSel = (child.Name == bindData.Type)
+                    local isSel = (child.Name == bindData.Type or (bindData.Type == "Always on" and child.Name == "Always On"))
                     child.BackgroundColor3 = Theme.DropdownBg
                     child.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(130, 134, 145)
                     child.Font = isSel and Theme.FontBold or Theme.FontMedium
@@ -3665,23 +3668,25 @@ function Controls:CreateToggle(parent, config)
         Row4.Parent = BindPopover
         createCorner(Row4, 3)
 
+        local lastTypeSelectTime = 0
+
         local function updatePopoverLayout()
-            local showKey = (bindData.Type ~= "Always on")
-            Row4.Visible = showKey
+            Row4.Visible = true
             if hasIndicatorUI then
-                BindPopover.Size = UDim2.new(0, 185, 0, showKey and 126 or 94)
+                BindPopover.Size = UDim2.new(0, 185, 0, 126)
             else
-                BindPopover.Size = UDim2.new(0, 185, 0, showKey and 70 or 40)
+                BindPopover.Size = UDim2.new(0, 185, 0, 70)
             end
         end
 
-        for _, tOpt in ipairs(typeOptions) do
+        for optIdx, tOpt in ipairs(typeOptions) do
             local TBtn = Instance.new("TextButton")
             TBtn.Name = tOpt
+            TBtn.LayoutOrder = optIdx
             TBtn.Size = UDim2.new(1, 0, 0, 21)
-            local isSel = (tOpt == bindData.Type)
+            local isSel = (tOpt == bindData.Type or (bindData.Type == "Always on" and tOpt == "Always On"))
             TBtn.BackgroundColor3 = Theme.DropdownBg
-            TBtn.Text = " " .. tOpt
+            TBtn.Text = "  " .. tOpt
             TBtn.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(130, 134, 145)
             TBtn.TextSize = 11
             TBtn.Font = isSel and Theme.FontBold or Theme.FontMedium
@@ -3692,12 +3697,12 @@ function Controls:CreateToggle(parent, config)
             createCorner(TBtn, 2)
 
             TBtn.MouseEnter:Connect(function()
-                if tOpt ~= bindData.Type then
+                if tOpt ~= bindData.Type and not (bindData.Type == "Always on" and tOpt == "Always On") then
                     TBtn.TextColor3 = Color3.fromRGB(195, 200, 210)
                 end
             end)
             TBtn.MouseLeave:Connect(function()
-                if tOpt ~= bindData.Type then
+                if tOpt ~= bindData.Type and not (bindData.Type == "Always on" and tOpt == "Always On") then
                     TBtn.TextColor3 = Color3.fromRGB(130, 134, 145)
                 end
             end)
@@ -3705,14 +3710,12 @@ function Controls:CreateToggle(parent, config)
                 lastTypeSelectTime = os.clock()
                 bindData.Type = tOpt
                 TypeText.Text = tOpt
+                TypePopover.Visible = false
+                TypeBottomCover.Visible = false
+                TypeChevron.Text = "C"
                 updateTypeOptionColors()
                 updateBindBtn()
                 updatePopoverLayout()
-                task.defer(function()
-                    TypePopover.Visible = false
-                    TypeBottomCover.Visible = false
-                    TypeChevron.Text = "C"
-                end)
             end
             TBtn.MouseButton1Down:Connect(selectType)
             TBtn.MouseButton1Click:Connect(selectType)
