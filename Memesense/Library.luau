@@ -418,6 +418,7 @@ local ColorPickerModal = nil
 local draggingSV = false
 local draggingHue = false
 local draggingAlpha = false
+local lastTypeSelectTime = 0
 
 -- Modal Blocker to sink input and prevent hover over menu items when any dropdown is open
 local ModalBlocker = Instance.new("TextButton")
@@ -3668,16 +3669,16 @@ function Controls:CreateToggle(parent, config)
         Row4.Parent = BindPopover
         createCorner(Row4, 3)
 
-        local lastTypeSelectTime = 0
-
         local function updatePopoverLayout()
-            Row4.Visible = true
+            local showKey = (bindData.Type ~= "Always On" and bindData.Type ~= "Always on" and bindData.Type ~= "Disable")
+            Row4.Visible = showKey
             if hasIndicatorUI then
-                BindPopover.Size = UDim2.new(0, 185, 0, 126)
+                BindPopover.Size = UDim2.new(0, 185, 0, showKey and 126 or 94)
             else
-                BindPopover.Size = UDim2.new(0, 185, 0, 70)
+                BindPopover.Size = UDim2.new(0, 185, 0, showKey and 70 or 40)
             end
         end
+        updatePopoverLayout()
 
         for optIdx, tOpt in ipairs(typeOptions) do
             local TBtn = Instance.new("TextButton")
