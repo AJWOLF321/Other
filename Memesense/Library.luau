@@ -602,12 +602,13 @@ end
 local WindowWidth = 700
 local WindowHeight = 590
 
-local MainWindow = Instance.new("Frame")
+local MainWindow = Instance.new("CanvasGroup")
 MainWindow.Name = "MainWindow"
 MainWindow.Size = UDim2.new(0, WindowWidth, 0, WindowHeight)
 MainWindow.Position = UDim2.new(0.5, -WindowWidth / 2, 0.5, -WindowHeight / 2)
 MainWindow.BackgroundColor3 = Theme.Background
 MainWindow.BorderSizePixel = 0
+MainWindow.GroupTransparency = 0
 MainWindow.Parent = ScreenGui
 
 createStroke(MainWindow, Theme.Border, 1)
@@ -2806,7 +2807,7 @@ end
 -- Checkbox Toggle (with optional Keybind button)
 function Controls:CreateToggle(parent, config)
     local name = config.Name or "Toggle"
-    local default = false
+    local default = (config.Default == true)
     local hasKeybind = (config.Keybind ~= nil)
     local callback = config.Callback
     local order = config.LayoutOrder or 0
@@ -5133,11 +5134,22 @@ end
 do
     local MenuVisible = true
 
-    local CameraController = nil
-    local function getCameraController()
-        if CameraController then return CameraController end
-        pcall(function()
     local function updateMouseLock(menuOpen)
+        pcall(function()
+            local controllers = ReplicatedStorage:FindFirstChild("Controllers")
+            local cc = controllers and controllers:FindFirstChild("CameraController")
+            if cc then
+                local cameraController = require(cc)
+                if cameraController then
+                    if type(cameraController.setForceLockOverride) == "function" then
+                        cameraController.setForceLockOverride("MemeSense", menuOpen)
+                    end
+                    if type(cameraController.setMouseEnabled) == "function" then
+                        cameraController.setMouseEnabled(menuOpen)
+                    end
+                end
+            end
+        end)
         pcall(function()
             if menuOpen then
                 UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -5152,7 +5164,20 @@ do
     -- Initial mouse unlock on execution since Menu starts visible
     updateMouseLock(true)
 
-    -- Guard mouse unlock while menu is visible
+    -- Guard mouse unlock right after BloxStrike CameraController (Camera.Value + 1)
+    pcall(function()
+        RunService:BindToRenderStep("MemeSenseMouseUnlock", Enum.RenderPriority.Camera.Value + 2, function()
+            if MenuVisible then
+                if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
+                    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                end
+                if not UserInputService.MouseIconEnabled then
+                    UserInputService.MouseIconEnabled = true
+                end
+            end
+        end)
+    end)
+
     local MouseLockConn = RunService.RenderStepped:Connect(function()
         if MenuVisible then
             pcall(function()
@@ -5167,18 +5192,45 @@ do
     end)
     table.insert(Connections, MouseLockConn)
 
+    local currentMenuTween = nil
+    local currentBgTween = nil
+
     local function setMenuVisible(visible)
         if visible == MenuVisible then return end
         MenuVisible = visible
         updateMouseLock(visible)
 
+        if currentMenuTween then
+            pcall(function() currentMenuTween:Cancel() end)
+            currentMenuTween = nil
+        end
+        if currentBgTween then
+            pcall(function() currentBgTween:Cancel() end)
+            currentBgTween = nil
+        end
+
+        local tweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
         if not visible then
             pcall(CloseAllPopups)
-            pcall(function()
-                MainWindow.Visible = false
-                BgOverlay.Visible = false
-                PopupsLayer.Visible = false
-                ScreenGui.Enabled = false
+            pcall(function() PopupsLayer.Visible = false end)
+            currentMenuTween = TweenService:Create(MainWindow, tweenInfo, {
+                GroupTransparency = 1
+            })
+            currentBgTween = TweenService:Create(BgOverlay, tweenInfo, {
+                BackgroundTransparency = 1
+            })
+            currentMenuTween:Play()
+            currentBgTween:Play()
+            currentMenuTween.Completed:Connect(function()
+                if not MenuVisible then
+                    pcall(function()
+                        MainWindow.Visible = false
+                        BgOverlay.Visible = false
+                        PopupsLayer.Visible = false
+                        ScreenGui.Enabled = false
+                    end)
+                end
             end)
         else
             pcall(function()
@@ -5187,6 +5239,14 @@ do
                 BgOverlay.Visible = true
                 PopupsLayer.Visible = true
             end)
+            currentMenuTween = TweenService:Create(MainWindow, tweenInfo, {
+                GroupTransparency = 0
+            })
+            currentBgTween = TweenService:Create(BgOverlay, tweenInfo, {
+                BackgroundTransparency = 0.65
+            })
+            currentMenuTween:Play()
+            currentBgTween:Play()
         end
     end
 
@@ -5236,6 +5296,8 @@ do
                     MainWindow.Visible = true
                     BgOverlay.Visible = true
                     PopupsLayer.Visible = true
+                    MainWindow.GroupTransparency = 0
+                    BgOverlay.BackgroundTransparency = 0.65
                     updateMouseLock(true)
                 end)
             end
@@ -5244,6 +5306,10 @@ do
     table.insert(Connections, charAddedConn)
 
     getgenv().MemeSenseCleanup = function()
+        updateMouseLock(false)
+        pcall(function()
+            RunService:UnbindFromRenderStep("MemeSenseMouseUnlock")
+        end)
         for _, conn in ipairs(Connections) do
             pcall(function() conn:Disconnect() end)
         end
@@ -5288,3 +5354,4 @@ end
 
 getgenv().MemeSenseLibrary = Library
 return Library
+
