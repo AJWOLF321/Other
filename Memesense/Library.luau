@@ -779,10 +779,17 @@ MasterLabel.TextXAlignment = Enum.TextXAlignment.Left
 MasterLabel.AutoButtonColor = false
 MasterLabel.Parent = MasterSwitchFrame
 
-local masterState = false
-local function toggleMaster(newState)
-    masterState = (newState ~= nil) and newState or (not masterState)
-    if masterState then
+local tabMasterStates = {
+    ["Legitbot"] = false,
+    ["Aim Assist"] = false,
+    ["Chams"] = false,
+    ["Items"] = false,
+}
+
+local function updateMasterSwitchUI()
+    local curTab = ActiveTab and ActiveTab.Name or "Legitbot"
+    local state = tabMasterStates[curTab] == true
+    if state then
         MasterBox.BackgroundColor3 = Theme.CheckboxChecked
         MasterCheckLabel.Visible = true
         MasterLabel.TextColor3 = Theme.TextActive
@@ -793,14 +800,24 @@ local function toggleMaster(newState)
     end
 end
 
+local function toggleMaster(newState)
+    local curTab = ActiveTab and ActiveTab.Name or "Legitbot"
+    local current = tabMasterStates[curTab] == true
+    local nextVal = (newState ~= nil) and newState or (not current)
+    tabMasterStates[curTab] = nextVal
+    updateMasterSwitchUI()
+end
+
 -- Hover highlight on unchecked box (transparent red)
 local function onMasterHoverEnter()
-    if not masterState then
+    local curTab = ActiveTab and ActiveTab.Name or "Legitbot"
+    if not tabMasterStates[curTab] then
         MasterBox.BackgroundColor3 = Theme.CheckboxHoverOff
     end
 end
 local function onMasterHoverLeave()
-    if not masterState then
+    local curTab = ActiveTab and ActiveTab.Name or "Legitbot"
+    if not tabMasterStates[curTab] then
         MasterBox.BackgroundColor3 = Theme.CheckboxOff
     end
 end
@@ -946,7 +963,7 @@ WeaponPopPad.Parent = WeaponPopContainer
 local SubWeaponDropdownFrame = nil
 
 local weaponOptions = { "Per weapons", "All weapons", "Per groups" }
-local chamsOptions = { "Players", "Ragdolls", "Local player" }
+local chamsOptions = { "Players", "Local player" }
 
 local legitbotWeaponMode = "All weapons"
 local aimAssistWeaponMode = "All weapons"
@@ -1409,6 +1426,7 @@ local function SelectTab(tabName)
         else
             HeaderCenterGroup.Visible = true
             MasterSwitchFrame.Visible = true
+            updateMasterSwitchUI()
             if tabName == "Aim Assist" then
                 WeaponDropdownFrame.Visible = true
                 WeaponBtn.Text = "  " .. aimAssistWeaponMode
@@ -5566,3 +5584,4 @@ end
 
 getgenv().MemeSenseLibrary = Library
 return Library
+
