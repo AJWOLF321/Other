@@ -231,8 +231,8 @@ local function GetRandomSymbolString(length)
     return table.concat(result, "")
 end
 
--- Safe Container Resolver: gethui() -> CoreGui -> PlayerGui
-local function GetSafeContainer()
+-- Safe Parent Resolver: PlayerGui -> gethui() -> CoreGui
+local function GetSafeParent()
     -- 1. Try PlayerGui first: guarantees 100% access without Capability.Plugin security restrictions on event threads
     local targetParent = nil
     pcall(function()
@@ -254,15 +254,10 @@ local function GetSafeContainer()
         end)
     end
 
-    local folder = Instance.new("Folder")
-    folder.Name = GetRandomSymbolString(16)
-    folder.Parent = targetParent or CoreGui
-
-    return folder
+    return targetParent or CoreGui
 end
 
-local Container = GetSafeContainer()
-getgenv().MemeSenseContainer = Container
+local SafeParent = GetSafeParent()
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GetRandomSymbolString(16)
@@ -274,14 +269,19 @@ ScreenGui.IgnoreGuiInset = true
 if not gethui and syn and syn.protect_gui then
     pcall(syn.protect_gui, ScreenGui)
 end
-ScreenGui.Parent = Container
+ScreenGui.Parent = SafeParent
+
+local Container = ScreenGui
+getgenv().MemeSenseContainer = ScreenGui
 getgenv().MemeSenseGui = ScreenGui
 
-Container.AncestryChanged:Connect(function(_, parent)
+ScreenGui.AncestryChanged:Connect(function(_, parent)
     if not parent then
-        if getgenv().MemeSenseCleanup then
-            getgenv().MemeSenseCleanup()
-        end
+        task.delay(0.5, function()
+            if not ScreenGui.Parent and getgenv().MemeSenseCleanup then
+                getgenv().MemeSenseCleanup()
+            end
+        end)
     end
 end)
 
