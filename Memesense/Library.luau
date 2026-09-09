@@ -2914,64 +2914,30 @@ function Controls:CreateToggle(parent, config)
 
     local state = default
     local isEnabled = (config.Enabled ~= false)
-    local onEnabledChanged = nil
     local function setEnabled(val)
         isEnabled = val
         if not isEnabled then
-            Label.TextColor3 = Color3.fromRGB(60, 64, 74)
-            Box.BackgroundColor3 = state and Color3.fromRGB(90, 25, 30) or Color3.fromRGB(18, 19, 23)
-            Box.BackgroundTransparency = 0.5
-            CheckIcon.TextColor3 = Color3.fromRGB(90, 90, 90)
-            CheckIcon.Visible = state
-            for _, child in ipairs(ToggleRow:GetChildren()) do
-                if child:IsA("TextButton") and child ~= Box and child ~= Label then
-                    child.TextColor3 = Color3.fromRGB(60, 64, 74)
-                elseif child:IsA("TextLabel") and child ~= Label then
-                    child.TextColor3 = Color3.fromRGB(60, 64, 74)
-                elseif child:IsA("Frame") and child ~= Box then
-                    child.BackgroundTransparency = 0.6
-                end
-            end
+            Label.TextColor3 = Color3.fromRGB(60, 62, 70)
+            Box.BackgroundColor3 = Color3.fromRGB(18, 19, 22)
+            CheckIcon.Visible = false
+            Box.AutoButtonColor = false
         else
             Label.TextColor3 = state and (config.TextColor or Theme.TextActive) or Theme.TextDim
             Box.BackgroundColor3 = state and Theme.CheckboxChecked or Theme.CheckboxOff
-            Box.BackgroundTransparency = 0
-            CheckIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
             CheckIcon.Visible = state
-            for _, child in ipairs(ToggleRow:GetChildren()) do
-                if child:IsA("TextButton") and child ~= Box and child ~= Label then
-                    if child.Name == "SettingsBtn" then
-                        child.TextColor3 = Color3.fromRGB(180, 185, 195)
-                    end
-                elseif child:IsA("Frame") and child ~= Box then
-                    child.BackgroundTransparency = 0
-                end
-            end
-        end
-        if onEnabledChanged then
-            pcall(onEnabledChanged, isEnabled)
+            Box.AutoButtonColor = true
         end
     end
     setEnabled(isEnabled)
 
     local function updateState(val)
         state = val
-        if not isEnabled then
-            Label.TextColor3 = Color3.fromRGB(60, 64, 74)
-            Box.BackgroundColor3 = state and Color3.fromRGB(90, 25, 30) or Color3.fromRGB(18, 19, 23)
-            Box.BackgroundTransparency = 0.5
-            CheckIcon.TextColor3 = Color3.fromRGB(90, 90, 90)
-            CheckIcon.Visible = state
-        elseif state then
+        if state then
             Box.BackgroundColor3 = Theme.CheckboxChecked
-            Box.BackgroundTransparency = 0
-            CheckIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
             CheckIcon.Visible = true
             Label.TextColor3 = config.TextColor or Theme.TextActive
         else
             Box.BackgroundColor3 = Theme.CheckboxOff
-            Box.BackgroundTransparency = 0
-            CheckIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
             CheckIcon.Visible = false
             Label.TextColor3 = config.TextColor or Theme.TextDim
         end
@@ -3037,7 +3003,6 @@ function Controls:CreateToggle(parent, config)
         SettingsBtn.MouseLeave:Connect(function() SettingsBtn.TextColor3 = Color3.fromRGB(180, 185, 195) end)
         if config.OnSettingsClick then
             SettingsBtn.MouseButton1Click:Connect(function()
-                if not isEnabled then return end
                 config.OnSettingsClick(SettingsBtn)
             end)
         end
@@ -3061,7 +3026,6 @@ function Controls:CreateToggle(parent, config)
 
             local chipIdx = i
             Chip.MouseButton1Click:Connect(function()
-                if not isEnabled then return end
                 Controls:OpenColorPicker(Chip, Chip.BackgroundColor3, 1, function(newColor, newAlpha)
                     Chip.BackgroundColor3 = newColor
                     if config.ColorCallback then
@@ -3085,7 +3049,6 @@ function Controls:CreateToggle(parent, config)
         createCorner(Chip, 4.75)
 
         Chip.MouseButton1Click:Connect(function()
-            if not isEnabled then return end
             Controls:OpenColorPicker(Chip, Chip.BackgroundColor3, 1, function(newColor, newAlpha)
                 Chip.BackgroundColor3 = newColor
                 if config.ColorCallback then
@@ -3302,12 +3265,16 @@ function Controls:CreateToggle(parent, config)
                 local isCur = (isMulti and dSel[opt] or opt == dSel)
                 if not isCur then
                     OBtn.TextColor3 = Color3.fromRGB(195, 200, 210)
+                else
+                    OBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
             OBtn.MouseLeave:Connect(function()
                 local isCur = (isMulti and dSel[opt] or opt == dSel)
                 if not isCur then
                     OBtn.TextColor3 = Color3.fromRGB(130, 134, 145)
+                else
+                    OBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
             OBtn.MouseButton1Click:Connect(function()
@@ -3323,6 +3290,9 @@ function Controls:CreateToggle(parent, config)
                     local txt = getDisplayText()
                     DdLabel.Text = txt
                     DdPopHeaderLabel.Text = txt
+                    DdPopover.Visible = false
+                    DdChevron.Text = "C"
+                    if ModalBlocker then ModalBlocker.Visible = false end
                     updateOptionColors()
                     if ddConfig.Callback then pcall(ddConfig.Callback, opt) end
                 end
@@ -3330,7 +3300,6 @@ function Controls:CreateToggle(parent, config)
         end
 
         DdTrigger.MouseButton1Click:Connect(function()
-            if not isEnabled then return end
             local isOpen = DdPopover.Visible
             CloseAllPopups()
             if not isOpen then
@@ -3404,21 +3373,15 @@ function Controls:CreateToggle(parent, config)
         local function updateBindBtn()
             local isBound = (bindData.Key ~= nil and bindData.Key ~= Enum.KeyCode.Unknown)
             local isUnboundWarning = (not isBound and (bindData.Type == "Toggle" or bindData.Type == "On key down" or bindData.Type == "Hold"))
-            if not isEnabled then
-                BindBtn.TextColor3 = Color3.fromRGB(60, 64, 74)
-            elseif isUnboundWarning then
+            if isUnboundWarning then
                 BindBtn.TextColor3 = Theme.Accent
             else
                 BindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
             end
         end
         updateBindBtn()
-        onEnabledChanged = function(en)
-            updateBindBtn()
-        end
 
         BindBtn.MouseEnter:Connect(function()
-            if not isEnabled then return end
             local isBound = (bindData.Key ~= nil and bindData.Key ~= Enum.KeyCode.Unknown)
             local isUnboundWarning = (not isBound and (bindData.Type == "Toggle" or bindData.Type == "On key down" or bindData.Type == "Hold"))
             if isUnboundWarning then
@@ -4010,7 +3973,6 @@ function Controls:CreateToggle(parent, config)
         end
 
         local bindExecBegan = UserInputService.InputBegan:Connect(function(input, processed)
-            if not isEnabled then return end
             if listening then return end
             if UserInputService:GetFocusedTextBox() then return end
             if not inputMatches(input) then return end
@@ -4025,7 +3987,6 @@ function Controls:CreateToggle(parent, config)
         table.insert(Connections, bindExecBegan)
 
         local bindExecEnded = UserInputService.InputEnded:Connect(function(input)
-            if not isEnabled then return end
             if listening then return end
             if not inputMatches(input) then return end
 
@@ -4072,7 +4033,6 @@ function Controls:CreateToggle(parent, config)
 
         -- Top-left of keybind popover opens where cursor is on bottom-right of keybind
         BindBtn.MouseButton1Click:Connect(function()
-            if not isEnabled then return end
             local isOpen = BindPopover.Visible
             CloseAllPopups()
             if not isOpen then
@@ -4447,6 +4407,9 @@ function Controls:CreateDropdown(parent, config)
         current = opt
         SelectedLabel.Text = opt
         PopHeaderLabel.Text = opt
+        Popover.Visible = false
+        Chevron.Text = "C"
+        if ModalBlocker then ModalBlocker.Visible = false end
         if buildOptions then buildOptions() end
         if callback then
             pcall(callback, opt)
@@ -4477,11 +4440,15 @@ function Controls:CreateDropdown(parent, config)
             OptBtn.MouseEnter:Connect(function()
                 if opt ~= current then
                     OptBtn.TextColor3 = Color3.fromRGB(195, 200, 210)
+                else
+                    OptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
             OptBtn.MouseLeave:Connect(function()
                 if opt ~= current then
                     OptBtn.TextColor3 = Color3.fromRGB(130, 134, 145)
+                else
+                    OptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
             OptBtn.MouseButton1Click:Connect(function()
@@ -4531,7 +4498,14 @@ end
 function Controls:CreateMultiDropdown(parent, config)
     local name = config.Name or "MultiDropdown"
     local options = config.Options or {}
-    local selected = config.Default or {}
+    local rawSel = config.Default or {}
+    local selected = {}
+    if typeof(rawSel) == "table" then
+        for _, k in ipairs(rawSel) do selected[k] = true end
+        for k, v in pairs(rawSel) do if v == true then selected[k] = true end end
+    elseif typeof(rawSel) == "string" then
+        selected[rawSel] = true
+    end
     local callback = config.Callback
     local order = config.LayoutOrder or 0
 
@@ -4734,11 +4708,15 @@ function Controls:CreateMultiDropdown(parent, config)
             OptBtn.MouseEnter:Connect(function()
                 if not selected[opt] then
                     OptBtn.TextColor3 = Color3.fromRGB(195, 200, 210)
+                else
+                    OptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
             OptBtn.MouseLeave:Connect(function()
                 if not selected[opt] then
                     OptBtn.TextColor3 = Color3.fromRGB(130, 134, 145)
+                else
+                    OptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
 
