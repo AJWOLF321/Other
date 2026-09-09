@@ -3375,9 +3375,27 @@ function Controls:CreateToggle(parent, config)
 
         local TypePopover = nil
         local TypeChevron = nil
+        local listening = false
+        local listenConn = nil
+        local KeyBtn = nil
+        local function cancelListening()
+            if listening then
+                listening = false
+                if KeyBtn then
+                    KeyBtn.Text = getKeyDisplayName(bindData.Key)
+                    KeyBtn.TextColor3 = Theme.TextActive
+                end
+                if listenConn then
+                    listenConn:Disconnect()
+                    listenConn = nil
+                end
+            end
+        end
+
         table.insert(ActivePopups, {
             Frame = BindPopover,
             OnClose = function()
+                cancelListening()
                 if TypePopover then TypePopover.Visible = false end
                 if TypeChevron then TypeChevron.Text = "C" end
             end
@@ -3825,25 +3843,40 @@ function Controls:CreateToggle(parent, config)
             Row4.BackgroundColor3 = Theme.DropdownBg
         end)
 
-        local listening = false
-        local listenConn = nil
+        KeyBtn = Instance.new("TextButton")
+        KeyBtn.Name = "KeyButton"
+        KeyBtn.Size = UDim2.new(1, 0, 1, 0)
+        KeyBtn.BackgroundTransparency = 1
+        KeyBtn.Text = getKeyDisplayName(bindData.Key)
+        KeyBtn.TextColor3 = Theme.TextActive
+        KeyBtn.TextSize = 12
+        KeyBtn.Font = Theme.FontMedium
+        KeyBtn.AutoButtonColor = false
+        KeyBtn.ZIndex = 132
+        KeyBtn.Parent = Row4
+
+        KeyBtn.MouseEnter:Connect(function()
+            Row4.BackgroundColor3 = Color3.fromRGB(95, 102, 112)
+        end)
+        KeyBtn.MouseLeave:Connect(function()
+            Row4.BackgroundColor3 = Theme.DropdownBg
+        end)
 
         KeyBtn.MouseButton1Click:Connect(function()
+            if listening then
+                cancelListening()
+                return
+            end
+
             if bindData.Key ~= nil then
                 -- When pressed again, unbind back to [none]
                 bindData.Key = nil
                 KeyBtn.Text = "[none]"
                 KeyBtn.TextColor3 = Theme.TextActive
                 updateBindBtn()
-                listening = false
-                if listenConn then
-                    listenConn:Disconnect()
-                    listenConn = nil
-                end
                 return
             end
 
-            if listening then return end
             listening = true
             KeyBtn.Text = "..."
             KeyBtn.TextColor3 = Color3.fromRGB(255, 215, 0) -- "..." in yellow
@@ -3857,7 +3890,7 @@ function Controls:CreateToggle(parent, config)
                         updateBindBtn()
                     else
                         bindData.Key = input.KeyCode
-                        KeyBtn.Text = string.lower(input.KeyCode.Name) -- keybind in lowercase e.g. "d"
+                        KeyBtn.Text = string.lower(input.KeyCode.Name)
                         KeyBtn.TextColor3 = Theme.TextActive
                         updateBindBtn()
                     end
@@ -3885,7 +3918,13 @@ function Controls:CreateToggle(parent, config)
         local function inputMatches(input)
             if not bindData.Key or bindData.Key == Enum.KeyCode.Unknown then return false end
             if typeof(bindData.Key) == "EnumItem" then
-                return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bindData.Key
+                if bindData.Key.EnumType == Enum.KeyCode then
+                    return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bindData.Key
+                elseif bindData.Key.EnumType == Enum.UserInputType then
+                    return input.UserInputType == bindData.Key
+                end
+                return (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bindData.Key)
+                    or (input.UserInputType == bindData.Key)
             elseif typeof(bindData.Key) == "string" then
                 local lowerKey = string.lower(bindData.Key)
                 if lowerKey == "m1" or lowerKey == "mouse1" then
@@ -3906,10 +3945,10 @@ function Controls:CreateToggle(parent, config)
             if UserInputService:GetFocusedTextBox() then return end
             if not inputMatches(input) then return end
 
-            local bType = bindData.Type
-            if bType == "Toggle" then
+            local bType = string.lower(tostring(bindData.Type or ""))
+            if bType == "toggle" then
                 updateState(not state)
-            elseif bType == "On key down" or bType == "Hold" then
+            elseif bType == "on key down" or bType == "hold" then
                 updateState(true)
             end
         end)
@@ -3919,8 +3958,8 @@ function Controls:CreateToggle(parent, config)
             if listening then return end
             if not inputMatches(input) then return end
 
-            local bType = bindData.Type
-            if bType == "On key down" or bType == "Hold" then
+            local bType = string.lower(tostring(bindData.Type or ""))
+            if bType == "on key down" or bType == "hold" then
                 updateState(false)
             end
         end)
@@ -3941,7 +3980,11 @@ function Controls:CreateToggle(parent, config)
         local bindOutsideConn = UserInputService.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 if not BindPopover.Visible then return end
-                if listening or (os.clock() - lastPopoverDragTime < 0.2) or (os.clock() - lastTypeSelectTime < 0.35) then return end
+                if listening then
+                    cancelListening()
+                    return
+                end
+                if (os.clock() - lastPopoverDragTime < 0.2) or (os.clock() - lastTypeSelectTime < 0.35) then return end
                 local mousePos = UserInputService:GetMouseLocation()
                 if isPosInGui(BindPopover, mousePos, 8) then return end
                 if isPosInGui(BindBtn, mousePos, 8) then return end
