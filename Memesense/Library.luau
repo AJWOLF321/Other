@@ -2913,6 +2913,22 @@ function Controls:CreateToggle(parent, config)
     Label.Parent = ToggleRow
 
     local state = default
+    local isEnabled = (config.Enabled ~= false)
+    local function setEnabled(val)
+        isEnabled = val
+        if not isEnabled then
+            Label.TextColor3 = Theme.TextDim
+            Box.BackgroundColor3 = Theme.CheckboxOff
+            CheckIcon.Visible = false
+            Box.AutoButtonColor = false
+        else
+            Label.TextColor3 = state and (config.TextColor or Theme.TextActive) or Theme.TextDim
+            Box.BackgroundColor3 = state and Theme.CheckboxChecked or Theme.CheckboxOff
+            CheckIcon.Visible = state
+        end
+    end
+    setEnabled(isEnabled)
+
     local function updateState(val)
         state = val
         if state then
@@ -2931,11 +2947,13 @@ function Controls:CreateToggle(parent, config)
 
     -- Hover effect on checkbox box (transparent red highlight on toggle hover matching screenshot)
     local function onToggleHoverEnter()
+        if not isEnabled then return end
         if not state then
             Box.BackgroundColor3 = Theme.CheckboxHoverOff
         end
     end
     local function onToggleHoverLeave()
+        if not isEnabled then return end
         if not state then
             Box.BackgroundColor3 = Theme.CheckboxOff
         end
@@ -2948,8 +2966,14 @@ function Controls:CreateToggle(parent, config)
     Label.MouseEnter:Connect(onToggleHoverEnter)
     Label.MouseLeave:Connect(onToggleHoverLeave)
 
-    Box.MouseButton1Click:Connect(function() updateState(not state) end)
-    Label.MouseButton1Click:Connect(function() updateState(not state) end)
+    Box.MouseButton1Click:Connect(function()
+        if not isEnabled then return end
+        updateState(not state)
+    end)
+    Label.MouseButton1Click:Connect(function()
+        if not isEnabled then return end
+        updateState(not state)
+    end)
 
     if config.SettingsIcon then
         local SettingsBtn = Instance.new("TextButton")
@@ -4047,7 +4071,8 @@ function Controls:CreateToggle(parent, config)
     return {
         Set = updateState,
         Get = function() return state end,
-        Keybind = keybindObj
+        Keybind = keybindObj,
+        SetEnabled = setEnabled
     }
 end
 
@@ -5396,7 +5421,7 @@ do
     end
 
     local ToggleConn = UserInputService.InputBegan:Connect(function(input, processed)
-        if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightControl then
+        if input.KeyCode == Enum.KeyCode.Insert then
             setMenuVisible(not MenuVisible)
         end
         -- Close dropdowns on outside click
