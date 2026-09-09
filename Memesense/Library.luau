@@ -18,15 +18,25 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
 
 -- Clean up any existing running instances
-if getgenv().MemeSenseCleanup then
-    pcall(getgenv().MemeSenseCleanup)
-end
-if getgenv().MemeSenseGui and getgenv().MemeSenseGui.Parent then
-    pcall(function() getgenv().MemeSenseGui:Destroy() end)
-end
-if getgenv().MemeSenseContainer and getgenv().MemeSenseContainer.Parent then
-    pcall(function() getgenv().MemeSenseContainer:Destroy() end)
-end
+pcall(function()
+    if getgenv().MemeSenseCleanup then
+        getgenv().MemeSenseCleanup()
+    end
+end)
+pcall(function()
+    local oldGui = getgenv().MemeSenseGui
+    if oldGui then
+        getgenv().MemeSenseGui = nil
+        oldGui:Destroy()
+    end
+end)
+pcall(function()
+    local oldContainer = getgenv().MemeSenseContainer
+    if oldContainer then
+        getgenv().MemeSenseContainer = nil
+        oldContainer:Destroy()
+    end
+end)
 
 
 local Connections = {}
@@ -5136,21 +5146,6 @@ do
 
     local function updateMouseLock(menuOpen)
         pcall(function()
-            local controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            local cc = controllers and controllers:FindFirstChild("CameraController")
-            if cc then
-                local cameraController = require(cc)
-                if cameraController then
-                    if type(cameraController.setForceLockOverride) == "function" then
-                        cameraController.setForceLockOverride("MemeSense", menuOpen)
-                    end
-                    if type(cameraController.setMouseEnabled) == "function" then
-                        cameraController.setMouseEnabled(menuOpen)
-                    end
-                end
-            end
-        end)
-        pcall(function()
             if menuOpen then
                 UserInputService.MouseBehavior = Enum.MouseBehavior.Default
                 UserInputService.MouseIconEnabled = true
@@ -5345,12 +5340,20 @@ do
             pcall(function() conn:Disconnect() end)
         end
         table.clear(Connections)
-        if getgenv().MemeSenseGui and getgenv().MemeSenseGui.Parent then
-            pcall(function() getgenv().MemeSenseGui:Destroy() end)
-        end
-        if getgenv().MemeSenseContainer and getgenv().MemeSenseContainer.Parent then
-            pcall(function() getgenv().MemeSenseContainer:Destroy() end)
-        end
+        pcall(function()
+            local gui = getgenv().MemeSenseGui
+            if gui then
+                getgenv().MemeSenseGui = nil
+                gui:Destroy()
+            end
+        end)
+        pcall(function()
+            local cont = getgenv().MemeSenseContainer
+            if cont then
+                getgenv().MemeSenseContainer = nil
+                cont:Destroy()
+            end
+        end)
     end
 
     -- Final sweep: ensure every instance in the hierarchy has an obfuscated symbol name
@@ -5385,3 +5388,4 @@ end
 
 getgenv().MemeSenseLibrary = Library
 return Library
+
