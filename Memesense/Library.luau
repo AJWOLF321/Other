@@ -834,9 +834,10 @@ createStroke(WeaponPopover, Theme.ControlBorder, 1)
 
 local WeaponPopHeader = Instance.new("Frame")
 WeaponPopHeader.Name = "Header"
-WeaponPopHeader.Size = UDim2.new(1, 0, 0, 26)
+WeaponPopHeader.Size = UDim2.new(1, 0, 0, 0)
 WeaponPopHeader.Position = UDim2.new(0, 0, 0, 0)
 WeaponPopHeader.BackgroundTransparency = 1
+WeaponPopHeader.Visible = false
 WeaponPopHeader.ZIndex = 121
 WeaponPopHeader.Parent = WeaponPopover
 
@@ -850,6 +851,7 @@ WeaponPopHeaderLabel.TextColor3 = Theme.TextActive
 WeaponPopHeaderLabel.TextSize = 12
 WeaponPopHeaderLabel.Font = Theme.FontMedium
 WeaponPopHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+WeaponPopHeaderLabel.Visible = false
 WeaponPopHeaderLabel.ZIndex = 122
 WeaponPopHeaderLabel.Parent = WeaponPopHeader
 
@@ -864,6 +866,7 @@ WeaponPopChevron.TextColor3 = Color3.fromRGB(255, 255, 255)
 WeaponPopChevron.TextSize = 13
 WeaponPopChevron.TextXAlignment = Enum.TextXAlignment.Center
 WeaponPopChevron.TextYAlignment = Enum.TextYAlignment.Center
+WeaponPopChevron.Visible = false
 WeaponPopChevron.ZIndex = 122
 WeaponPopChevron.Parent = WeaponPopHeader
 
@@ -872,6 +875,7 @@ WeaponPopHeaderBtn.Name = "CloseTrigger"
 WeaponPopHeaderBtn.Size = UDim2.new(1, 0, 1, 0)
 WeaponPopHeaderBtn.BackgroundTransparency = 1
 WeaponPopHeaderBtn.Text = ""
+WeaponPopHeaderBtn.Visible = false
 WeaponPopHeaderBtn.ZIndex = 123
 WeaponPopHeaderBtn.Parent = WeaponPopHeader
 
@@ -881,8 +885,8 @@ end)
 
 local WeaponPopContainer = Instance.new("Frame")
 WeaponPopContainer.Name = "ListContainer"
-WeaponPopContainer.Size = UDim2.new(1, 0, 1, -26)
-WeaponPopContainer.Position = UDim2.new(0, 0, 0, 26)
+WeaponPopContainer.Size = UDim2.new(1, 0, 1, 0)
+WeaponPopContainer.Position = UDim2.new(0, 0, 0, 0)
 WeaponPopContainer.BackgroundTransparency = 1
 WeaponPopContainer.ZIndex = 121
 WeaponPopContainer.Parent = WeaponPopover
@@ -995,14 +999,12 @@ WeaponBtn.MouseButton1Click:Connect(function()
         local currentOpts = getActiveHeaderModeInfo()
         local targetW = calculateDropdownWidth(absSize.X, currentOpts, Theme.FontMedium, 12, 22)
         local posX = screenPos.X + absSize.X - targetW
-        local headerH = absSize.Y
         local optionsH = #currentOpts * 24 + 4
-        local totalH = headerH + optionsH
-        WeaponPopover.Position = UDim2.new(0, posX, 0, screenPos.Y)
-        WeaponPopover.Size = UDim2.new(0, targetW, 0, totalH)
-        WeaponPopHeader.Size = UDim2.new(1, 0, 0, headerH)
-        WeaponPopContainer.Position = UDim2.new(0, 0, 0, headerH)
-        WeaponPopContainer.Size = UDim2.new(1, 0, 1, -headerH)
+        WeaponPopover.Position = UDim2.new(0, posX, 0, screenPos.Y + absSize.Y + 2)
+        WeaponPopover.Size = UDim2.new(0, targetW, 0, optionsH)
+        WeaponPopHeader.Visible = false
+        WeaponPopContainer.Position = UDim2.new(0, 0, 0, 0)
+        WeaponPopContainer.Size = UDim2.new(1, 0, 1, 0)
         WeaponPopHeaderLabel.Text = WeaponBtn.Text
         WeaponPopover.Visible = true
         WeaponChevron.Text = "B"
@@ -1069,9 +1071,10 @@ createStroke(SubWeaponPopover, Theme.ControlBorder, 1)
 
 local SubWeaponPopHeader = Instance.new("Frame")
 SubWeaponPopHeader.Name = "Header"
-SubWeaponPopHeader.Size = UDim2.new(1, 0, 0, 26)
+SubWeaponPopHeader.Size = UDim2.new(1, 0, 0, 0)
 SubWeaponPopHeader.Position = UDim2.new(0, 0, 0, 0)
 SubWeaponPopHeader.BackgroundTransparency = 1
+SubWeaponPopHeader.Visible = false
 SubWeaponPopHeader.ZIndex = 121
 SubWeaponPopHeader.Parent = SubWeaponPopover
 
@@ -1085,6 +1088,7 @@ SubWeaponPopHeaderLabel.TextColor3 = Theme.TextActive
 SubWeaponPopHeaderLabel.TextSize = 12
 SubWeaponPopHeaderLabel.Font = Theme.FontMedium
 SubWeaponPopHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+SubWeaponPopHeaderLabel.Visible = false
 SubWeaponPopHeaderLabel.ZIndex = 122
 SubWeaponPopHeaderLabel.Parent = SubWeaponPopHeader
 
@@ -1099,6 +1103,7 @@ SubWeaponPopChevron.TextColor3 = Color3.fromRGB(255, 255, 255)
 SubWeaponPopChevron.TextSize = 13
 SubWeaponPopChevron.TextXAlignment = Enum.TextXAlignment.Center
 SubWeaponPopChevron.TextYAlignment = Enum.TextYAlignment.Center
+SubWeaponPopChevron.Visible = false
 SubWeaponPopChevron.ZIndex = 122
 SubWeaponPopChevron.Parent = SubWeaponPopHeader
 
@@ -1107,6 +1112,7 @@ SubWeaponPopHeaderBtn.Name = "CloseTrigger"
 SubWeaponPopHeaderBtn.Size = UDim2.new(1, 0, 1, 0)
 SubWeaponPopHeaderBtn.BackgroundTransparency = 1
 SubWeaponPopHeaderBtn.Text = ""
+SubWeaponPopHeaderBtn.Visible = false
 SubWeaponPopHeaderBtn.ZIndex = 123
 SubWeaponPopHeaderBtn.Parent = SubWeaponPopHeader
 
@@ -1116,8 +1122,8 @@ end)
 
 local SubWeaponPopContainer = Instance.new("Frame")
 SubWeaponPopContainer.Name = "ListContainer"
-SubWeaponPopContainer.Size = UDim2.new(1, 0, 1, -26)
-SubWeaponPopContainer.Position = UDim2.new(0, 0, 0, 26)
+SubWeaponPopContainer.Size = UDim2.new(1, 0, 1, 0)
+SubWeaponPopContainer.Position = UDim2.new(0, 0, 0, 0)
 SubWeaponPopContainer.BackgroundTransparency = 1
 SubWeaponPopContainer.ZIndex = 121
 SubWeaponPopContainer.Parent = SubWeaponPopover
@@ -1194,14 +1200,12 @@ SubWeaponBtn.MouseButton1Click:Connect(function()
         local absSize = SubWeaponDropdownFrame.AbsoluteSize
         local targetW = calculateDropdownWidth(absSize.X, subWeaponOptions, Theme.FontMedium, 12, 22)
         local posX = screenPos.X + absSize.X - targetW
-        local headerH = absSize.Y
         local optionsH = 138
-        local totalH = headerH + optionsH
-        SubWeaponPopover.Position = UDim2.new(0, posX, 0, screenPos.Y)
-        SubWeaponPopover.Size = UDim2.new(0, targetW, 0, totalH)
-        SubWeaponPopHeader.Size = UDim2.new(1, 0, 0, headerH)
-        SubWeaponPopContainer.Position = UDim2.new(0, 0, 0, headerH)
-        SubWeaponPopContainer.Size = UDim2.new(1, 0, 1, -headerH)
+        SubWeaponPopover.Position = UDim2.new(0, posX, 0, screenPos.Y + absSize.Y + 2)
+        SubWeaponPopover.Size = UDim2.new(0, targetW, 0, optionsH)
+        SubWeaponPopHeader.Visible = false
+        SubWeaponPopContainer.Position = UDim2.new(0, 0, 0, 0)
+        SubWeaponPopContainer.Size = UDim2.new(1, 0, 1, 0)
         SubWeaponPopHeaderLabel.Text = SubWeaponBtn.Text
         SubWeaponPopover.Visible = true
         SubWeaponChevron.Text = "B"
@@ -3079,12 +3083,13 @@ function Controls:CreateToggle(parent, config)
         createCorner(DdPopover, 3)
         createStroke(DdPopover, Theme.ControlBorder, 1)
 
-        -- Top Header inside the open dropdown (shows current selection + up chevron, clicks to close)
+        -- Top Header inside the open dropdown (hidden for bottom-anchored popover)
         local DdPopHeader = Instance.new("Frame")
         DdPopHeader.Name = "Header"
-        DdPopHeader.Size = UDim2.new(1, 0, 0, 22)
+        DdPopHeader.Size = UDim2.new(1, 0, 0, 0)
         DdPopHeader.Position = UDim2.new(0, 0, 0, 0)
         DdPopHeader.BackgroundTransparency = 1
+        DdPopHeader.Visible = false
         DdPopHeader.ZIndex = 141
         DdPopHeader.Parent = DdPopover
 
@@ -3093,13 +3098,8 @@ function Controls:CreateToggle(parent, config)
         DdPopHeaderLabel.Size = UDim2.new(1, -22, 1, 0)
         DdPopHeaderLabel.Position = UDim2.new(0, 6, 0, 0)
         DdPopHeaderLabel.BackgroundTransparency = 1
-        DdPopHeaderLabel.ClipsDescendants = true
         DdPopHeaderLabel.Text = getDisplayText()
-        DdPopHeaderLabel.TextColor3 = Theme.TextActive
-        DdPopHeaderLabel.TextSize = 11
-        DdPopHeaderLabel.Font = Theme.FontBold
-        DdPopHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-        DdPopHeaderLabel.ZIndex = 142
+        DdPopHeaderLabel.Visible = false
         DdPopHeaderLabel.Parent = DdPopHeader
 
         local DdPopChevron = Instance.new("TextLabel")
@@ -3107,11 +3107,7 @@ function Controls:CreateToggle(parent, config)
         DdPopChevron.Size = UDim2.new(0, 12, 0, 12)
         DdPopChevron.Position = UDim2.new(1, -15, 0.5, -6)
         DdPopChevron.BackgroundTransparency = 1
-        DdPopChevron.FontFace = GuiIconsFont
-        DdPopChevron.Text = "B"
-        DdPopChevron.TextColor3 = Color3.fromRGB(255, 255, 255)
-        DdPopChevron.TextSize = 11
-        DdPopChevron.ZIndex = 142
+        DdPopChevron.Visible = false
         DdPopChevron.Parent = DdPopHeader
 
         local DdPopHeaderBtn = Instance.new("TextButton")
@@ -3119,7 +3115,7 @@ function Controls:CreateToggle(parent, config)
         DdPopHeaderBtn.Size = UDim2.new(1, 0, 1, 0)
         DdPopHeaderBtn.BackgroundTransparency = 1
         DdPopHeaderBtn.Text = ""
-        DdPopHeaderBtn.ZIndex = 143
+        DdPopHeaderBtn.Visible = false
         DdPopHeaderBtn.Parent = DdPopHeader
 
         DdPopHeaderBtn.MouseButton1Click:Connect(function()
@@ -3128,8 +3124,8 @@ function Controls:CreateToggle(parent, config)
 
         local DdListContainer = Instance.new("Frame")
         DdListContainer.Name = "ListContainer"
-        DdListContainer.Size = UDim2.new(1, 0, 1, -22)
-        DdListContainer.Position = UDim2.new(0, 0, 0, 22)
+        DdListContainer.Size = UDim2.new(1, 0, 1, 0)
+        DdListContainer.Position = UDim2.new(0, 0, 0, 0)
         DdListContainer.BackgroundTransparency = 1
         DdListContainer.ZIndex = 141
         DdListContainer.Parent = DdPopover
@@ -3225,18 +3221,20 @@ function Controls:CreateToggle(parent, config)
                 local absSize = DdBox.AbsoluteSize
                 local targetW = calculateDropdownWidth(absSize.X, dOpts, Theme.FontBold, 11, 20)
                 local posX = screenPos.X + absSize.X - targetW
-                local headerH = absSize.Y
                 local optionsH = #dOpts * 21 + 4
-                local totalH = headerH + optionsH
-                DdPopover.Position = UDim2.new(0, posX, 0, screenPos.Y)
-                DdPopover.Size = UDim2.new(0, targetW, 0, totalH)
-                DdPopHeader.Size = UDim2.new(1, 0, 0, headerH)
-                DdListContainer.Position = UDim2.new(0, 0, 0, headerH)
-                DdListContainer.Size = UDim2.new(1, 0, 1, -headerH)
+                DdPopover.Position = UDim2.new(0, posX, 0, screenPos.Y + absSize.Y + 2)
+                DdPopover.Size = UDim2.new(0, targetW, 0, optionsH)
+                DdPopHeader.Visible = false
+                DdListContainer.Position = UDim2.new(0, 0, 0, 0)
+                DdListContainer.Size = UDim2.new(1, 0, 1, 0)
                 DdPopHeaderLabel.Text = getDisplayText()
                 DdPopover.Visible = true
+                DdChevron.Text = "B"
                 updateOptionColors()
                 if ModalBlocker then ModalBlocker.Visible = true end
+            else
+                DdPopover.Visible = false
+                DdChevron.Text = "C"
             end
         end)
     end
@@ -4131,9 +4129,10 @@ function Controls:CreateDropdown(parent, config)
 
     local PopHeader = Instance.new("Frame")
     PopHeader.Name = "Header"
-    PopHeader.Size = UDim2.new(1, 0, 0, 26)
+    PopHeader.Size = UDim2.new(1, 0, 0, 0)
     PopHeader.Position = UDim2.new(0, 0, 0, 0)
     PopHeader.BackgroundTransparency = 1
+    PopHeader.Visible = false
     PopHeader.ZIndex = 121
     PopHeader.Parent = Popover
 
@@ -4142,13 +4141,8 @@ function Controls:CreateDropdown(parent, config)
     PopHeaderLabel.Size = UDim2.new(1, -22, 1, 0)
     PopHeaderLabel.Position = UDim2.new(0, 8, 0, 0)
     PopHeaderLabel.BackgroundTransparency = 1
-    PopHeaderLabel.ClipsDescendants = true
     PopHeaderLabel.Text = current
-    PopHeaderLabel.TextColor3 = Theme.TextActive
-    PopHeaderLabel.TextSize = 12
-    PopHeaderLabel.Font = Theme.FontMedium
-    PopHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-    PopHeaderLabel.ZIndex = 122
+    PopHeaderLabel.Visible = false
     PopHeaderLabel.Parent = PopHeader
 
     local PopChevron = Instance.new("TextLabel")
@@ -4156,11 +4150,7 @@ function Controls:CreateDropdown(parent, config)
     PopChevron.Size = UDim2.new(0, 14, 0, 14)
     PopChevron.Position = UDim2.new(1, -16, 0.5, -7)
     PopChevron.BackgroundTransparency = 1
-    PopChevron.FontFace = GuiIconsFont
-    PopChevron.Text = "B"
-    PopChevron.TextColor3 = Color3.fromRGB(255, 255, 255)
-    PopChevron.TextSize = 13
-    PopChevron.ZIndex = 122
+    PopChevron.Visible = false
     PopChevron.Parent = PopHeader
 
     local PopHeaderBtn = Instance.new("TextButton")
@@ -4168,7 +4158,7 @@ function Controls:CreateDropdown(parent, config)
     PopHeaderBtn.Size = UDim2.new(1, 0, 1, 0)
     PopHeaderBtn.BackgroundTransparency = 1
     PopHeaderBtn.Text = ""
-    PopHeaderBtn.ZIndex = 123
+    PopHeaderBtn.Visible = false
     PopHeaderBtn.Parent = PopHeader
 
     PopHeaderBtn.MouseButton1Click:Connect(function()
@@ -4177,8 +4167,8 @@ function Controls:CreateDropdown(parent, config)
 
     local ScrollList = Instance.new("ScrollingFrame")
     ScrollList.Name = "ScrollList"
-    ScrollList.Size = UDim2.new(1, 0, 1, -26)
-    ScrollList.Position = UDim2.new(0, 0, 0, 26)
+    ScrollList.Size = UDim2.new(1, 0, 1, 0)
+    ScrollList.Position = UDim2.new(0, 0, 0, 0)
     ScrollList.BackgroundTransparency = 1
     ScrollList.BorderSizePixel = 0
     ScrollList.ScrollBarThickness = 2
@@ -4263,15 +4253,13 @@ function Controls:CreateDropdown(parent, config)
             local absSize = Box.AbsoluteSize
             local targetW = calculateDropdownWidth(absSize.X, options, Theme.FontMedium, 12, 22)
             local posX = screenPos.X + absSize.X - targetW
-            local headerH = absSize.Y
-            local optionsH = math.min(#options * 23 + 4, 160)
-            local totalH = headerH + optionsH
-            Popover.Position = UDim2.new(0, posX, 0, screenPos.Y)
-            Popover.Size = UDim2.new(0, targetW, 0, totalH)
-            PopHeader.Size = UDim2.new(1, 0, 0, headerH)
-            ScrollList.Position = UDim2.new(0, 0, 0, headerH)
-            ScrollList.Size = UDim2.new(1, 0, 1, -headerH)
-            ScrollList.CanvasSize = UDim2.new(0, 0, 0, #options * 23 + 4)
+            local optionsH = math.min(#options * 23 + 6, 160)
+            Popover.Position = UDim2.new(0, posX, 0, screenPos.Y + absSize.Y + 2)
+            Popover.Size = UDim2.new(0, targetW, 0, optionsH)
+            PopHeader.Visible = false
+            ScrollList.Position = UDim2.new(0, 0, 0, 0)
+            ScrollList.Size = UDim2.new(1, 0, 1, 0)
+            ScrollList.CanvasSize = UDim2.new(0, 0, 0, #options * 23 + 6)
             PopHeaderLabel.Text = current
             Popover.Visible = true
             Chevron.Text = "B"
@@ -4380,9 +4368,10 @@ function Controls:CreateMultiDropdown(parent, config)
 
     local PopHeader = Instance.new("Frame")
     PopHeader.Name = "Header"
-    PopHeader.Size = UDim2.new(1, 0, 0, 26)
+    PopHeader.Size = UDim2.new(1, 0, 0, 0)
     PopHeader.Position = UDim2.new(0, 0, 0, 0)
     PopHeader.BackgroundTransparency = 1
+    PopHeader.Visible = false
     PopHeader.ZIndex = 121
     PopHeader.Parent = Popover
 
@@ -4391,12 +4380,7 @@ function Controls:CreateMultiDropdown(parent, config)
     PopHeaderLabel.Size = UDim2.new(1, -22, 1, 0)
     PopHeaderLabel.Position = UDim2.new(0, 8, 0, 0)
     PopHeaderLabel.BackgroundTransparency = 1
-    PopHeaderLabel.ClipsDescendants = true
-    PopHeaderLabel.TextColor3 = Theme.TextActive
-    PopHeaderLabel.TextSize = 12
-    PopHeaderLabel.Font = Theme.FontMedium
-    PopHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-    PopHeaderLabel.ZIndex = 122
+    PopHeaderLabel.Visible = false
     PopHeaderLabel.Parent = PopHeader
 
     local PopChevron = Instance.new("TextLabel")
@@ -4404,11 +4388,7 @@ function Controls:CreateMultiDropdown(parent, config)
     PopChevron.Size = UDim2.new(0, 14, 0, 14)
     PopChevron.Position = UDim2.new(1, -16, 0.5, -7)
     PopChevron.BackgroundTransparency = 1
-    PopChevron.FontFace = GuiIconsFont
-    PopChevron.Text = "B"
-    PopChevron.TextColor3 = Color3.fromRGB(255, 255, 255)
-    PopChevron.TextSize = 13
-    PopChevron.ZIndex = 122
+    PopChevron.Visible = false
     PopChevron.Parent = PopHeader
 
     local PopHeaderBtn = Instance.new("TextButton")
@@ -4416,7 +4396,7 @@ function Controls:CreateMultiDropdown(parent, config)
     PopHeaderBtn.Size = UDim2.new(1, 0, 1, 0)
     PopHeaderBtn.BackgroundTransparency = 1
     PopHeaderBtn.Text = ""
-    PopHeaderBtn.ZIndex = 123
+    PopHeaderBtn.Visible = false
     PopHeaderBtn.Parent = PopHeader
 
     PopHeaderBtn.MouseButton1Click:Connect(function()
@@ -4425,8 +4405,8 @@ function Controls:CreateMultiDropdown(parent, config)
 
     local ScrollList = Instance.new("ScrollingFrame")
     ScrollList.Name = "ScrollList"
-    ScrollList.Size = UDim2.new(1, 0, 1, -26)
-    ScrollList.Position = UDim2.new(0, 0, 0, 26)
+    ScrollList.Size = UDim2.new(1, 0, 1, 0)
+    ScrollList.Position = UDim2.new(0, 0, 0, 0)
     ScrollList.BackgroundTransparency = 1
     ScrollList.BorderSizePixel = 0
     ScrollList.ScrollBarThickness = 2
@@ -4517,15 +4497,13 @@ function Controls:CreateMultiDropdown(parent, config)
             local absSize = Box.AbsoluteSize
             local targetW = calculateDropdownWidth(absSize.X, options, Theme.FontMedium, 12, 22)
             local posX = screenPos.X + absSize.X - targetW
-            local headerH = absSize.Y
-            local optionsH = math.min(#options * 23 + 4, 160)
-            local totalH = headerH + optionsH
-            Popover.Position = UDim2.new(0, posX, 0, screenPos.Y)
-            Popover.Size = UDim2.new(0, targetW, 0, totalH)
-            PopHeader.Size = UDim2.new(1, 0, 0, headerH)
-            ScrollList.Position = UDim2.new(0, 0, 0, headerH)
-            ScrollList.Size = UDim2.new(1, 0, 1, -headerH)
-            ScrollList.CanvasSize = UDim2.new(0, 0, 0, #options * 23 + 4)
+            local optionsH = math.min(#options * 23 + 6, 160)
+            Popover.Position = UDim2.new(0, posX, 0, screenPos.Y + absSize.Y + 2)
+            Popover.Size = UDim2.new(0, targetW, 0, optionsH)
+            PopHeader.Visible = false
+            ScrollList.Position = UDim2.new(0, 0, 0, 0)
+            ScrollList.Size = UDim2.new(1, 0, 1, 0)
+            ScrollList.CanvasSize = UDim2.new(0, 0, 0, #options * 23 + 6)
             updateText()
             Popover.Visible = true
             Chevron.Text = "B"
@@ -4942,7 +4920,7 @@ function Controls:CreateMatrixRow(parent, config)
     end
 end
 
--- Text Input Box (e.g. Clan-tag spammer / Player name input on Misc tab)
+-- Text Input Box (e.g. Player name input on Misc tab)
 function Controls:CreateTextInput(parent, config)
     local placeholder = config.Placeholder or "Enter text..."
     local default = config.Default or ""
