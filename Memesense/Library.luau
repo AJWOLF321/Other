@@ -2914,29 +2914,64 @@ function Controls:CreateToggle(parent, config)
 
     local state = default
     local isEnabled = (config.Enabled ~= false)
+    local onEnabledChanged = nil
     local function setEnabled(val)
         isEnabled = val
         if not isEnabled then
-            Label.TextColor3 = Theme.TextDim
-            Box.BackgroundColor3 = Theme.CheckboxOff
-            CheckIcon.Visible = false
-            Box.AutoButtonColor = false
+            Label.TextColor3 = Color3.fromRGB(60, 64, 74)
+            Box.BackgroundColor3 = state and Color3.fromRGB(90, 25, 30) or Color3.fromRGB(18, 19, 23)
+            Box.BackgroundTransparency = 0.5
+            CheckIcon.TextColor3 = Color3.fromRGB(90, 90, 90)
+            CheckIcon.Visible = state
+            for _, child in ipairs(ToggleRow:GetChildren()) do
+                if child:IsA("TextButton") and child ~= Box and child ~= Label then
+                    child.TextColor3 = Color3.fromRGB(60, 64, 74)
+                elseif child:IsA("TextLabel") and child ~= Label then
+                    child.TextColor3 = Color3.fromRGB(60, 64, 74)
+                elseif child:IsA("Frame") and child ~= Box then
+                    child.BackgroundTransparency = 0.6
+                end
+            end
         else
             Label.TextColor3 = state and (config.TextColor or Theme.TextActive) or Theme.TextDim
             Box.BackgroundColor3 = state and Theme.CheckboxChecked or Theme.CheckboxOff
+            Box.BackgroundTransparency = 0
+            CheckIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
             CheckIcon.Visible = state
+            for _, child in ipairs(ToggleRow:GetChildren()) do
+                if child:IsA("TextButton") and child ~= Box and child ~= Label then
+                    if child.Name == "SettingsBtn" then
+                        child.TextColor3 = Color3.fromRGB(180, 185, 195)
+                    end
+                elseif child:IsA("Frame") and child ~= Box then
+                    child.BackgroundTransparency = 0
+                end
+            end
+        end
+        if onEnabledChanged then
+            pcall(onEnabledChanged, isEnabled)
         end
     end
     setEnabled(isEnabled)
 
     local function updateState(val)
         state = val
-        if state then
+        if not isEnabled then
+            Label.TextColor3 = Color3.fromRGB(60, 64, 74)
+            Box.BackgroundColor3 = state and Color3.fromRGB(90, 25, 30) or Color3.fromRGB(18, 19, 23)
+            Box.BackgroundTransparency = 0.5
+            CheckIcon.TextColor3 = Color3.fromRGB(90, 90, 90)
+            CheckIcon.Visible = state
+        elseif state then
             Box.BackgroundColor3 = Theme.CheckboxChecked
+            Box.BackgroundTransparency = 0
+            CheckIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
             CheckIcon.Visible = true
             Label.TextColor3 = config.TextColor or Theme.TextActive
         else
             Box.BackgroundColor3 = Theme.CheckboxOff
+            Box.BackgroundTransparency = 0
+            CheckIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
             CheckIcon.Visible = false
             Label.TextColor3 = config.TextColor or Theme.TextDim
         end
@@ -3002,6 +3037,7 @@ function Controls:CreateToggle(parent, config)
         SettingsBtn.MouseLeave:Connect(function() SettingsBtn.TextColor3 = Color3.fromRGB(180, 185, 195) end)
         if config.OnSettingsClick then
             SettingsBtn.MouseButton1Click:Connect(function()
+                if not isEnabled then return end
                 config.OnSettingsClick(SettingsBtn)
             end)
         end
@@ -3025,6 +3061,7 @@ function Controls:CreateToggle(parent, config)
 
             local chipIdx = i
             Chip.MouseButton1Click:Connect(function()
+                if not isEnabled then return end
                 Controls:OpenColorPicker(Chip, Chip.BackgroundColor3, 1, function(newColor, newAlpha)
                     Chip.BackgroundColor3 = newColor
                     if config.ColorCallback then
@@ -3048,6 +3085,7 @@ function Controls:CreateToggle(parent, config)
         createCorner(Chip, 4.75)
 
         Chip.MouseButton1Click:Connect(function()
+            if not isEnabled then return end
             Controls:OpenColorPicker(Chip, Chip.BackgroundColor3, 1, function(newColor, newAlpha)
                 Chip.BackgroundColor3 = newColor
                 if config.ColorCallback then
@@ -3292,6 +3330,7 @@ function Controls:CreateToggle(parent, config)
         end
 
         DdTrigger.MouseButton1Click:Connect(function()
+            if not isEnabled then return end
             local isOpen = DdPopover.Visible
             CloseAllPopups()
             if not isOpen then
@@ -3365,15 +3404,21 @@ function Controls:CreateToggle(parent, config)
         local function updateBindBtn()
             local isBound = (bindData.Key ~= nil and bindData.Key ~= Enum.KeyCode.Unknown)
             local isUnboundWarning = (not isBound and (bindData.Type == "Toggle" or bindData.Type == "On key down" or bindData.Type == "Hold"))
-            if isUnboundWarning then
+            if not isEnabled then
+                BindBtn.TextColor3 = Color3.fromRGB(60, 64, 74)
+            elseif isUnboundWarning then
                 BindBtn.TextColor3 = Theme.Accent
             else
                 BindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
             end
         end
         updateBindBtn()
+        onEnabledChanged = function(en)
+            updateBindBtn()
+        end
 
         BindBtn.MouseEnter:Connect(function()
+            if not isEnabled then return end
             local isBound = (bindData.Key ~= nil and bindData.Key ~= Enum.KeyCode.Unknown)
             local isUnboundWarning = (not isBound and (bindData.Type == "Toggle" or bindData.Type == "On key down" or bindData.Type == "Hold"))
             if isUnboundWarning then
@@ -3965,6 +4010,7 @@ function Controls:CreateToggle(parent, config)
         end
 
         local bindExecBegan = UserInputService.InputBegan:Connect(function(input, processed)
+            if not isEnabled then return end
             if listening then return end
             if UserInputService:GetFocusedTextBox() then return end
             if not inputMatches(input) then return end
@@ -3979,6 +4025,7 @@ function Controls:CreateToggle(parent, config)
         table.insert(Connections, bindExecBegan)
 
         local bindExecEnded = UserInputService.InputEnded:Connect(function(input)
+            if not isEnabled then return end
             if listening then return end
             if not inputMatches(input) then return end
 
@@ -4025,6 +4072,7 @@ function Controls:CreateToggle(parent, config)
 
         -- Top-left of keybind popover opens where cursor is on bottom-right of keybind
         BindBtn.MouseButton1Click:Connect(function()
+            if not isEnabled then return end
             local isOpen = BindPopover.Visible
             CloseAllPopups()
             if not isOpen then
