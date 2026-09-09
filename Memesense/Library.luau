@@ -471,40 +471,53 @@ ModalBlocker.MouseButton1Click:Connect(handleModalBlockerClick)
 
 local function makeDraggable(mainFrame, dragHandle)
     local dragging = false
-    local dragInput, dragStart, startPos
+    local dragStart = Vector2.new(0, 0)
+    local startPos = mainFrame.Position
 
     dragHandle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             CloseAllPopups()
             dragging = true
-            dragStart = input.Position
+            dragStart = UserInputService:GetMouseLocation()
             startPos = mainFrame.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
         end
     end)
 
-    dragHandle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
+    local endedConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
         end
     end)
+    table.insert(Connections, endedConn)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
+    local moveConn = UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
+                dragging = false
+                return
+            end
+
+            local curMouse = UserInputService:GetMouseLocation()
+            local delta = curMouse - dragStart
+
+            local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+            local targetX = startPos.X.Offset + delta.X
+            local targetY = startPos.Y.Offset + delta.Y
+
+            local minX = -viewport.X * 0.5 + 20
+            local maxX = viewport.X * 0.5 - 20
+            local minY = -viewport.Y * 0.5 + 20
+            local maxY = viewport.Y * 0.5 - 20
+
             mainFrame.Position = UDim2.new(
                 startPos.X.Scale,
-                startPos.X.Offset + delta.X,
+                math.clamp(targetX, minX, maxX),
                 startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
+                math.clamp(targetY, minY, maxY)
             )
         end
     end)
+    table.insert(Connections, moveConn)
 end
 
 local lastPopoverDragTime = 0
@@ -570,13 +583,12 @@ end
 local WindowWidth = 700
 local WindowHeight = 590
 
-local MainWindow = Instance.new("CanvasGroup")
+local MainWindow = Instance.new("Frame")
 MainWindow.Name = "MainWindow"
 MainWindow.Size = UDim2.new(0, WindowWidth, 0, WindowHeight)
 MainWindow.Position = UDim2.new(0.5, -WindowWidth / 2, 0.5, -WindowHeight / 2)
 MainWindow.BackgroundColor3 = Theme.Background
 MainWindow.BorderSizePixel = 0
-MainWindow.GroupTransparency = 0
 MainWindow.Parent = ScreenGui
 
 createStroke(MainWindow, Theme.Border, 1)
@@ -5101,65 +5113,91 @@ end
 
 do
     local MenuVisible = true
-    local isTweeningMenu = false
+
+    local CameraController = nil
+    local function getCameraController()
+        if CameraController then return CameraController end
+        pcall(function()
+            local controllers = ReplicatedStorage:FindFirstChild("Controllers")
+            local cc = controllers and controllers:FindFirstChild("CameraController")
+            if cc then
+                CameraController = require(cc)
+            end
+        end)
+        return CameraController
+    end
+
+    local function updateMouseLock(menuOpen)
+        pcall(function()
+            local cc = getCameraController()
+            if cc and type(cc.setForceLockOverride) == "function" then
+                cc.setForceLockOverride("MemeSense", menuOpen)
+            end
+        end)
+        pcall(function()
+            if menuOpen then
+                UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                UserInputService.MouseIconEnabled = true
+            else
+                UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+                UserInputService.MouseIconEnabled = false
+            end
+        end)
+    end
+
+    -- Initial mouse unlock on execution since Menu starts visible
+    updateMouseLock(true)
+
+    -- Guard mouse unlock while menu is visible
+    local MouseLockConn = RunService.RenderStepped:Connect(function()
+        if MenuVisible then
+            pcall(function()
+                local cc = getCameraController()
+                if cc and type(cc.setForceLockOverride) == "function" then
+                    cc.setForceLockOverride("MemeSense", true)
+                end
+            end)
+            pcall(function()
+                if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
+                    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                end
+                if not UserInputService.MouseIconEnabled then
+                    UserInputService.MouseIconEnabled = true
+                end
+            end)
+        end
+    end)
+    table.insert(Connections, MouseLockConn)
 
     local function setMenuVisible(visible)
-        if isTweeningMenu then return end
         if visible == MenuVisible then return end
         MenuVisible = visible
+        updateMouseLock(visible)
 
         if not visible then
             pcall(CloseAllPopups)
             pcall(function() PopupsLayer.Visible = false end)
             pcall(function() BgOverlay.Visible = false end)
-            isTweeningMenu = true
-            local ok, tween = pcall(function()
-                return TweenService:Create(MainWindow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    GroupTransparency = 1
-                })
-            end)
-            if ok and tween then
-                tween:Play()
-                tween.Completed:Connect(function()
-                    if not MenuVisible then
-                        pcall(function() MainWindow.Visible = false end)
-                    end
-                    isTweeningMenu = false
-                end)
-            else
-                pcall(function()
-                    MainWindow.GroupTransparency = 1
-                    MainWindow.Visible = false
-                end)
-                isTweeningMenu = false
-            end
+            pcall(function() MainWindow.Visible = false end)
         else
-            pcall(function() MainWindow.Visible = true end)
-            pcall(function() PopupsLayer.Visible = true end)
-            pcall(function() BgOverlay.Visible = true end)
-            pcall(function() MainWindow.GroupTransparency = 1 end)
-            isTweeningMenu = true
-            local ok, tween = pcall(function()
-                return TweenService:Create(MainWindow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    GroupTransparency = 0
-                })
+            pcall(function()
+                local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                local curX = MainWindow.Position.X.Offset
+                local curY = MainWindow.Position.Y.Offset
+                if math.abs(curX) > viewport.X * 0.7 or math.abs(curY) > viewport.Y * 0.7 then
+                    MainWindow.Position = UDim2.new(0.5, -WindowWidth / 2, 0.5, -WindowHeight / 2)
+                end
             end)
-            if ok and tween then
-                tween:Play()
-                tween.Completed:Connect(function()
-                    isTweeningMenu = false
-                end)
-            else
-                pcall(function()
-                    MainWindow.GroupTransparency = 0
-                end)
-                isTweeningMenu = false
-            end
+            pcall(function()
+                MainWindow.Visible = true
+                PopupsLayer.Visible = true
+                BgOverlay.Visible = true
+            end)
         end
     end
 
     local ToggleConn = UserInputService.InputBegan:Connect(function(input, processed)
-        if not processed and input.KeyCode == Enum.KeyCode.Insert then
+        if input.KeyCode == Enum.KeyCode.Insert then
             task.spawn(function()
                 setMenuVisible(not MenuVisible)
             end)
@@ -5196,6 +5234,27 @@ do
         end
     end)
     table.insert(Connections, ToggleConn)
+
+    -- Spawning Mechanics Guard: ensure menu and mouse unlock persist across character spawns
+    local charAddedConn = LocalPlayer.CharacterAdded:Connect(function()
+        task.defer(function()
+            if MenuVisible then
+                pcall(function()
+                    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                    local curX = MainWindow.Position.X.Offset
+                    local curY = MainWindow.Position.Y.Offset
+                    if math.abs(curX) > viewport.X * 0.7 or math.abs(curY) > viewport.Y * 0.7 then
+                        MainWindow.Position = UDim2.new(0.5, -WindowWidth / 2, 0.5, -WindowHeight / 2)
+                    end
+                    MainWindow.Visible = true
+                    BgOverlay.Visible = true
+                    PopupsLayer.Visible = true
+                    updateMouseLock(true)
+                end)
+            end
+        end)
+    end)
+    table.insert(Connections, charAddedConn)
 
     getgenv().MemeSenseCleanup = function()
         for _, conn in ipairs(Connections) do
