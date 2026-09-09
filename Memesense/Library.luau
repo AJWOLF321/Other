@@ -3241,8 +3241,6 @@ function Controls:CreateToggle(parent, config)
                     local txt = getDisplayText()
                     DdLabel.Text = txt
                     DdPopHeaderLabel.Text = txt
-                    DdPopover.Visible = false
-                    if ModalBlocker then ModalBlocker.Visible = false end
                     updateOptionColors()
                     if ddConfig.Callback then pcall(ddConfig.Callback, opt) end
                 end
@@ -4249,19 +4247,18 @@ function Controls:CreateDropdown(parent, config)
     PopoverPad.PaddingRight = UDim.new(0, 3)
     PopoverPad.Parent = ScrollList
 
+    local buildOptions
     local function selectOption(opt)
         current = opt
         SelectedLabel.Text = opt
         PopHeaderLabel.Text = opt
-        Popover.Visible = false
-        Chevron.Text = "C"
-        if ModalBlocker then ModalBlocker.Visible = false end
+        if buildOptions then buildOptions() end
         if callback then
             pcall(callback, opt)
         end
     end
 
-    local function buildOptions()
+    function buildOptions()
         for _, c in ipairs(ScrollList:GetChildren()) do
             if c:IsA("TextButton") then c:Destroy() end
         end
@@ -5388,4 +5385,3 @@ end
 
 getgenv().MemeSenseLibrary = Library
 return Library
-
