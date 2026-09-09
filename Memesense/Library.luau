@@ -231,48 +231,32 @@ local function GetRandomSymbolString(length)
     return table.concat(result, "")
 end
 
--- Safe Container Resolver (CoreGui > RobloxGui > Modules > Shell > Components)
+-- Safe Container Resolver: gethui() -> CoreGui -> PlayerGui
 local function GetSafeContainer()
-    local targetParent = CoreGui
-
-    local ok = pcall(function()
-        local robloxGui = CoreGui:FindFirstChild("RobloxGui") or CoreGui:WaitForChild("RobloxGui", 2)
-        if robloxGui then
-            local modules = robloxGui:FindFirstChild("Modules") or robloxGui:WaitForChild("Modules", 2)
-            if not modules then
-                local newModules = Instance.new("Folder")
-                newModules.Name = "Modules"
-                newModules.Parent = robloxGui
-                modules = newModules
-            end
-
-            local shell = modules:FindFirstChild("Shell") or modules:WaitForChild("Shell", 1)
-            if not shell then
-                local newShell = Instance.new("Folder")
-                newShell.Name = "Shell"
-                newShell.Parent = modules
-                shell = newShell
-            end
-
-            local components = shell:FindFirstChild("Components") or shell:WaitForChild("Components", 1)
-            if not components then
-                local newComponents = Instance.new("Folder")
-                newComponents.Name = "Components"
-                newComponents.Parent = shell
-                components = newComponents
-            end
-
-            targetParent = components
-        end
+    -- 1. Try PlayerGui first: guarantees 100% access without Capability.Plugin security restrictions on event threads
+    local targetParent = nil
+    pcall(function()
+        targetParent = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui") or Players.LocalPlayer:WaitForChild("PlayerGui", 5)
     end)
 
-    if not ok or not targetParent then
-        targetParent = CoreGui
+    -- 2. Fallback to gethui() if PlayerGui is not available
+    if not targetParent and gethui then
+        local ok, h = pcall(gethui)
+        if ok and h then
+            targetParent = h
+        end
+    end
+
+    -- 3. Fallback to CoreGui only if neither are available
+    if not targetParent then
+        pcall(function()
+            targetParent = CoreGui
+        end)
     end
 
     local folder = Instance.new("Folder")
     folder.Name = GetRandomSymbolString(16)
-    folder.Parent = targetParent
+    folder.Parent = targetParent or CoreGui
 
     return folder
 end
@@ -287,9 +271,8 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder = 10000
 ScreenGui.IgnoreGuiInset = true
 
-if syn and syn.protect_gui then
+if not gethui and syn and syn.protect_gui then
     pcall(syn.protect_gui, ScreenGui)
-    pcall(syn.protect_gui, Container)
 end
 ScreenGui.Parent = Container
 getgenv().MemeSenseGui = ScreenGui
@@ -5141,39 +5124,60 @@ do
         MenuVisible = visible
 
         if not visible then
-            CloseAllPopups()
-            PopupsLayer.Visible = false
-            BgOverlay.Visible = false
+            pcall(CloseAllPopups)
+            pcall(function() PopupsLayer.Visible = false end)
+            pcall(function() BgOverlay.Visible = false end)
             isTweeningMenu = true
-            local tween = TweenService:Create(MainWindow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                GroupTransparency = 1
-            })
-            tween:Play()
-            tween.Completed:Connect(function()
-                if not MenuVisible then
+            local ok, tween = pcall(function()
+                return TweenService:Create(MainWindow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    GroupTransparency = 1
+                })
+            end)
+            if ok and tween then
+                tween:Play()
+                tween.Completed:Connect(function()
+                    if not MenuVisible then
+                        pcall(function() MainWindow.Visible = false end)
+                    end
+                    isTweeningMenu = false
+                end)
+            else
+                pcall(function()
+                    MainWindow.GroupTransparency = 1
                     MainWindow.Visible = false
-                end
+                end)
                 isTweeningMenu = false
-            end)
+            end
         else
-            MainWindow.Visible = true
-            PopupsLayer.Visible = true
-            BgOverlay.Visible = true
-            MainWindow.GroupTransparency = 1
+            pcall(function() MainWindow.Visible = true end)
+            pcall(function() PopupsLayer.Visible = true end)
+            pcall(function() BgOverlay.Visible = true end)
+            pcall(function() MainWindow.GroupTransparency = 1 end)
             isTweeningMenu = true
-            local tween = TweenService:Create(MainWindow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                GroupTransparency = 0
-            })
-            tween:Play()
-            tween.Completed:Connect(function()
-                isTweeningMenu = false
+            local ok, tween = pcall(function()
+                return TweenService:Create(MainWindow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    GroupTransparency = 0
+                })
             end)
+            if ok and tween then
+                tween:Play()
+                tween.Completed:Connect(function()
+                    isTweeningMenu = false
+                end)
+            else
+                pcall(function()
+                    MainWindow.GroupTransparency = 0
+                end)
+                isTweeningMenu = false
+            end
         end
     end
 
     local ToggleConn = UserInputService.InputBegan:Connect(function(input, processed)
         if not processed and input.KeyCode == Enum.KeyCode.Insert then
-            setMenuVisible(not MenuVisible)
+            task.spawn(function()
+                setMenuVisible(not MenuVisible)
+            end)
         end
         -- Close dropdowns on outside click
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -5222,11 +5226,13 @@ do
     end
 
     -- Final sweep: ensure every instance in the hierarchy has an obfuscated symbol name
-    for _, desc in ipairs(Container:GetDescendants()) do
-        pcall(function()
-            desc.Name = GetRandomSymbolString(math.random(14, 20))
-        end)
-    end
+    pcall(function()
+        for _, desc in ipairs(Container:GetDescendants()) do
+            pcall(function()
+                desc.Name = GetRandomSymbolString(math.random(14, 20))
+            end)
+        end
+    end)
 
     function Library:Toggle(val)
         local target = (val ~= nil) and val or (not MenuVisible)
@@ -5234,11 +5240,13 @@ do
     end
 
     function Library:Ready()
-        for _, desc in ipairs(Container:GetDescendants()) do
-            pcall(function()
-                desc.Name = GetRandomSymbolString(math.random(14, 20))
-            end)
-        end
+        pcall(function()
+            for _, desc in ipairs(Container:GetDescendants()) do
+                pcall(function()
+                    desc.Name = GetRandomSymbolString(math.random(14, 20))
+                end)
+            end
+        end)
         if not ActiveTab and Tabs["Aim Assist"] then
             SelectTab("Aim Assist")
         end
