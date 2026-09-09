@@ -5192,38 +5192,57 @@ do
     end)
     table.insert(Connections, MouseLockConn)
 
-    local currentMenuTween = nil
-    local currentBgTween = nil
+    local animToken = 0
+
+    local function easeOutQuad(t)
+        return 1 - (1 - t) * (1 - t)
+    end
+
+    local function waitFrame()
+        local ok = pcall(function()
+            RunService.RenderStepped:Wait()
+        end)
+        if not ok then
+            task.wait()
+        end
+    end
 
     local function setMenuVisible(visible)
         if visible == MenuVisible then return end
         MenuVisible = visible
         updateMouseLock(visible)
 
-        if currentMenuTween then
-            pcall(function() currentMenuTween:Cancel() end)
-            currentMenuTween = nil
-        end
-        if currentBgTween then
-            pcall(function() currentBgTween:Cancel() end)
-            currentBgTween = nil
-        end
+        animToken = animToken + 1
+        local currentToken = animToken
 
-        local tweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local duration = 0.16
+        local startGroupAlpha = (pcall(function() return MainWindow.GroupTransparency end) and MainWindow.GroupTransparency) or (visible and 1 or 0)
+        local startBgAlpha = (pcall(function() return BgOverlay.BackgroundTransparency end) and BgOverlay.BackgroundTransparency) or (visible and 1 or 0.65)
 
         if not visible then
             pcall(CloseAllPopups)
             pcall(function() PopupsLayer.Visible = false end)
-            currentMenuTween = TweenService:Create(MainWindow, tweenInfo, {
-                GroupTransparency = 1
-            })
-            currentBgTween = TweenService:Create(BgOverlay, tweenInfo, {
-                BackgroundTransparency = 1
-            })
-            currentMenuTween:Play()
-            currentBgTween:Play()
-            currentMenuTween.Completed:Connect(function()
-                if not MenuVisible then
+
+            local targetGroupAlpha = 1
+            local targetBgAlpha = 1
+            local startTime = os.clock()
+
+            task.spawn(function()
+                while animToken == currentToken do
+                    local elapsed = os.clock() - startTime
+                    local progress = math.clamp(elapsed / duration, 0, 1)
+                    local alpha = easeOutQuad(progress)
+
+                    pcall(function()
+                        MainWindow.GroupTransparency = startGroupAlpha + (targetGroupAlpha - startGroupAlpha) * alpha
+                        BgOverlay.BackgroundTransparency = startBgAlpha + (targetBgAlpha - startBgAlpha) * alpha
+                    end)
+
+                    if progress >= 1 then break end
+                    waitFrame()
+                end
+
+                if animToken == currentToken and not MenuVisible then
                     pcall(function()
                         MainWindow.Visible = false
                         BgOverlay.Visible = false
@@ -5239,14 +5258,26 @@ do
                 BgOverlay.Visible = true
                 PopupsLayer.Visible = true
             end)
-            currentMenuTween = TweenService:Create(MainWindow, tweenInfo, {
-                GroupTransparency = 0
-            })
-            currentBgTween = TweenService:Create(BgOverlay, tweenInfo, {
-                BackgroundTransparency = 0.65
-            })
-            currentMenuTween:Play()
-            currentBgTween:Play()
+
+            local targetGroupAlpha = 0
+            local targetBgAlpha = 0.65
+            local startTime = os.clock()
+
+            task.spawn(function()
+                while animToken == currentToken do
+                    local elapsed = os.clock() - startTime
+                    local progress = math.clamp(elapsed / duration, 0, 1)
+                    local alpha = easeOutQuad(progress)
+
+                    pcall(function()
+                        MainWindow.GroupTransparency = startGroupAlpha + (targetGroupAlpha - startGroupAlpha) * alpha
+                        BgOverlay.BackgroundTransparency = startBgAlpha + (targetBgAlpha - startBgAlpha) * alpha
+                    end)
+
+                    if progress >= 1 then break end
+                    waitFrame()
+                end
+            end)
         end
     end
 
@@ -5354,4 +5385,3 @@ end
 
 getgenv().MemeSenseLibrary = Library
 return Library
-
