@@ -3726,10 +3726,11 @@ function Controls:CreateToggle(parent, config)
         local function updatePopoverLayout()
             local showKey = (bindData.Type ~= "Always On" and bindData.Type ~= "Always on" and bindData.Type ~= "Disable")
             Row4.Visible = showKey
+            local typePopH = (TypePopover and TypePopover.Visible) and 88 or 0
             if hasIndicatorUI then
-                BindPopover.Size = UDim2.new(0, 185, 0, showKey and 126 or 94)
+                BindPopover.Size = UDim2.new(0, 185, 0, (showKey and 126 or 94) + typePopH)
             else
-                BindPopover.Size = UDim2.new(0, 185, 0, showKey and 70 or 40)
+                BindPopover.Size = UDim2.new(0, 185, 0, (showKey and 70 or 40) + typePopH)
             end
         end
         updatePopoverLayout()
@@ -3767,17 +3768,22 @@ function Controls:CreateToggle(parent, config)
                     TBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end)
+            local selected = false
             local function selectType()
+                if selected then return end
+                selected = true
                 lastTypeSelectTime = os.clock()
                 bindData.Type = tOpt
                 TypeText.Text = tOpt
                 updateTypeOptionColors()
                 updateBindBtn()
-                updatePopoverLayout()
                 TypePopover.Visible = false
                 TypeBottomCover.Visible = false
                 TypeChevron.Text = "C"
+                updatePopoverLayout()
+                task.delay(0.2, function() selected = false end)
             end
+            TBtn.MouseButton1Down:Connect(selectType)
             TBtn.MouseButton1Click:Connect(selectType)
         end
 
@@ -3785,6 +3791,7 @@ function Controls:CreateToggle(parent, config)
             TypePopover.Visible = not TypePopover.Visible
             TypeBottomCover.Visible = TypePopover.Visible
             TypeChevron.Text = TypePopover.Visible and "B" or "C"
+            updatePopoverLayout()
             if TypePopover.Visible then
                 updateTypeOptionColors()
             end
