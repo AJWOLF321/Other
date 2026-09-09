@@ -231,30 +231,15 @@ local function GetRandomSymbolString(length)
     return table.concat(result, "")
 end
 
--- Safe Parent Resolver: PlayerGui -> gethui() -> CoreGui
+-- Safe Parent Resolver: gethui() -> CoreGui
 local function GetSafeParent()
-    -- 1. Try PlayerGui first: guarantees 100% access without Capability.Plugin security restrictions on event threads
-    local targetParent = nil
-    pcall(function()
-        targetParent = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui") or Players.LocalPlayer:WaitForChild("PlayerGui", 5)
-    end)
-
-    -- 2. Fallback to gethui() if PlayerGui is not available
-    if not targetParent and gethui then
+    if gethui then
         local ok, h = pcall(gethui)
         if ok and h then
-            targetParent = h
+            return h
         end
     end
-
-    -- 3. Fallback to CoreGui only if neither are available
-    if not targetParent then
-        pcall(function()
-            targetParent = CoreGui
-        end)
-    end
-
-    return targetParent or CoreGui
+    return CoreGui
 end
 
 local SafeParent = GetSafeParent()
