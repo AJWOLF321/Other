@@ -231,18 +231,54 @@ local function GetRandomSymbolString(length)
     return table.concat(result, "")
 end
 
--- Safe Parent Resolver: gethui() -> CoreGui
-local function GetSafeParent()
-    if gethui then
-        local ok, h = pcall(gethui)
-        if ok and h then
-            return h
+-- Safe Container Resolver (CoreGui > RobloxGui > Modules > Shell > Components)
+local function GetSafeContainer()
+    local targetParent = CoreGui
+
+    local ok = pcall(function()
+        local robloxGui = CoreGui:FindFirstChild("RobloxGui") or CoreGui:WaitForChild("RobloxGui", 2)
+        if robloxGui then
+            local modules = robloxGui:FindFirstChild("Modules") or robloxGui:WaitForChild("Modules", 2)
+            if not modules then
+                local newModules = Instance.new("Folder")
+                newModules.Name = "Modules"
+                newModules.Parent = robloxGui
+                modules = newModules
+            end
+
+            local shell = modules:FindFirstChild("Shell") or modules:WaitForChild("Shell", 1)
+            if not shell then
+                local newShell = Instance.new("Folder")
+                newShell.Name = "Shell"
+                newShell.Parent = modules
+                shell = newShell
+            end
+
+            local components = shell:FindFirstChild("Components") or shell:WaitForChild("Components", 1)
+            if not components then
+                local newComponents = Instance.new("Folder")
+                newComponents.Name = "Components"
+                newComponents.Parent = shell
+                components = newComponents
+            end
+
+            targetParent = components
         end
+    end)
+
+    if not ok or not targetParent then
+        targetParent = CoreGui
     end
-    return CoreGui
+
+    local folder = Instance.new("Folder")
+    folder.Name = GetRandomSymbolString(16)
+    folder.Parent = targetParent
+
+    return folder
 end
 
-local SafeParent = GetSafeParent()
+local Container = GetSafeContainer()
+getgenv().MemeSenseContainer = Container
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GetRandomSymbolString(16)
@@ -251,22 +287,18 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder = 10000
 ScreenGui.IgnoreGuiInset = true
 
-if not gethui and syn and syn.protect_gui then
+if syn and syn.protect_gui then
     pcall(syn.protect_gui, ScreenGui)
+    pcall(syn.protect_gui, Container)
 end
-ScreenGui.Parent = SafeParent
-
-local Container = ScreenGui
-getgenv().MemeSenseContainer = ScreenGui
+ScreenGui.Parent = Container
 getgenv().MemeSenseGui = ScreenGui
 
-ScreenGui.AncestryChanged:Connect(function(_, parent)
+Container.AncestryChanged:Connect(function(_, parent)
     if not parent then
-        task.delay(0.5, function()
-            if not ScreenGui.Parent and getgenv().MemeSenseCleanup then
-                getgenv().MemeSenseCleanup()
-            end
-        end)
+        if getgenv().MemeSenseCleanup then
+            getgenv().MemeSenseCleanup()
+        end
     end
 end)
 
@@ -471,53 +503,40 @@ ModalBlocker.MouseButton1Click:Connect(handleModalBlockerClick)
 
 local function makeDraggable(mainFrame, dragHandle)
     local dragging = false
-    local dragStart = Vector2.new(0, 0)
-    local startPos = mainFrame.Position
+    local dragInput, dragStart, startPos
 
     dragHandle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             CloseAllPopups()
             dragging = true
-            dragStart = UserInputService:GetMouseLocation()
+            dragStart = input.Position
             startPos = mainFrame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
 
-    local endedConn = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+    dragHandle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
         end
     end)
-    table.insert(Connections, endedConn)
 
-    local moveConn = UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
-                dragging = false
-                return
-            end
-
-            local curMouse = UserInputService:GetMouseLocation()
-            local delta = curMouse - dragStart
-
-            local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-            local targetX = startPos.X.Offset + delta.X
-            local targetY = startPos.Y.Offset + delta.Y
-
-            local minX = -viewport.X * 0.5 + 20
-            local maxX = viewport.X * 0.5 - 20
-            local minY = -viewport.Y * 0.5 + 20
-            local maxY = viewport.Y * 0.5 - 20
-
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
             mainFrame.Position = UDim2.new(
                 startPos.X.Scale,
-                math.clamp(targetX, minX, maxX),
+                startPos.X.Offset + delta.X,
                 startPos.Y.Scale,
-                math.clamp(targetY, minY, maxY)
+                startPos.Y.Offset + delta.Y
             )
         end
     end)
-    table.insert(Connections, moveConn)
 end
 
 local lastPopoverDragTime = 0
@@ -5118,22 +5137,7 @@ do
     local function getCameraController()
         if CameraController then return CameraController end
         pcall(function()
-            local controllers = ReplicatedStorage:FindFirstChild("Controllers")
-            local cc = controllers and controllers:FindFirstChild("CameraController")
-            if cc then
-                CameraController = require(cc)
-            end
-        end)
-        return CameraController
-    end
-
     local function updateMouseLock(menuOpen)
-        pcall(function()
-            local cc = getCameraController()
-            if cc and type(cc.setForceLockOverride) == "function" then
-                cc.setForceLockOverride("MemeSense", menuOpen)
-            end
-        end)
         pcall(function()
             if menuOpen then
                 UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -5151,12 +5155,6 @@ do
     -- Guard mouse unlock while menu is visible
     local MouseLockConn = RunService.RenderStepped:Connect(function()
         if MenuVisible then
-            pcall(function()
-                local cc = getCameraController()
-                if cc and type(cc.setForceLockOverride) == "function" then
-                    cc.setForceLockOverride("MemeSense", true)
-                end
-            end)
             pcall(function()
                 if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
                     UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -5176,31 +5174,25 @@ do
 
         if not visible then
             pcall(CloseAllPopups)
-            pcall(function() PopupsLayer.Visible = false end)
-            pcall(function() BgOverlay.Visible = false end)
-            pcall(function() MainWindow.Visible = false end)
+            pcall(function()
+                MainWindow.Visible = false
+                BgOverlay.Visible = false
+                PopupsLayer.Visible = false
+                ScreenGui.Enabled = false
+            end)
         else
             pcall(function()
-                local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-                local curX = MainWindow.Position.X.Offset
-                local curY = MainWindow.Position.Y.Offset
-                if math.abs(curX) > viewport.X * 0.7 or math.abs(curY) > viewport.Y * 0.7 then
-                    MainWindow.Position = UDim2.new(0.5, -WindowWidth / 2, 0.5, -WindowHeight / 2)
-                end
-            end)
-            pcall(function()
+                ScreenGui.Enabled = true
                 MainWindow.Visible = true
-                PopupsLayer.Visible = true
                 BgOverlay.Visible = true
+                PopupsLayer.Visible = true
             end)
         end
     end
 
     local ToggleConn = UserInputService.InputBegan:Connect(function(input, processed)
-        if input.KeyCode == Enum.KeyCode.Insert then
-            task.spawn(function()
-                setMenuVisible(not MenuVisible)
-            end)
+        if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightControl then
+            setMenuVisible(not MenuVisible)
         end
         -- Close dropdowns on outside click
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -5240,12 +5232,7 @@ do
         task.defer(function()
             if MenuVisible then
                 pcall(function()
-                    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-                    local curX = MainWindow.Position.X.Offset
-                    local curY = MainWindow.Position.Y.Offset
-                    if math.abs(curX) > viewport.X * 0.7 or math.abs(curY) > viewport.Y * 0.7 then
-                        MainWindow.Position = UDim2.new(0.5, -WindowWidth / 2, 0.5, -WindowHeight / 2)
-                    end
+                    ScreenGui.Enabled = true
                     MainWindow.Visible = true
                     BgOverlay.Visible = true
                     PopupsLayer.Visible = true
