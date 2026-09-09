@@ -3781,6 +3781,15 @@ function Controls:CreateToggle(parent, config)
                 TypeBottomCover.Visible = false
                 TypeChevron.Text = "C"
                 updatePopoverLayout()
+
+                if tOpt == "Always On" or tOpt == "Always on" then
+                    updateState(true)
+                elseif tOpt == "Disable" then
+                    updateState(false)
+                elseif tOpt == "On key down" or tOpt == "Hold" then
+                    updateState(false)
+                end
+
                 task.delay(0.2, function() selected = false end)
             end
             TBtn.MouseButton1Down:Connect(selectType)
@@ -3871,6 +3880,51 @@ function Controls:CreateToggle(parent, config)
                 end
             end)
         end)
+
+        -- Active Keybind Listener: executes toggle / hold in-game
+        local function inputMatches(input)
+            if not bindData.Key or bindData.Key == Enum.KeyCode.Unknown then return false end
+            if typeof(bindData.Key) == "EnumItem" then
+                return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bindData.Key
+            elseif typeof(bindData.Key) == "string" then
+                local lowerKey = string.lower(bindData.Key)
+                if lowerKey == "m1" or lowerKey == "mouse1" then
+                    return input.UserInputType == Enum.UserInputType.MouseButton1
+                elseif lowerKey == "m2" or lowerKey == "mouse2" then
+                    return input.UserInputType == Enum.UserInputType.MouseButton2
+                elseif lowerKey == "m3" or lowerKey == "mouse3" then
+                    return input.UserInputType == Enum.UserInputType.MouseButton3
+                else
+                    return input.UserInputType == Enum.UserInputType.Keyboard and string.lower(input.KeyCode.Name) == lowerKey
+                end
+            end
+            return false
+        end
+
+        local bindExecBegan = UserInputService.InputBegan:Connect(function(input, processed)
+            if listening then return end
+            if UserInputService:GetFocusedTextBox() then return end
+            if not inputMatches(input) then return end
+
+            local bType = bindData.Type
+            if bType == "Toggle" then
+                updateState(not state)
+            elseif bType == "On key down" or bType == "Hold" then
+                updateState(true)
+            end
+        end)
+        table.insert(Connections, bindExecBegan)
+
+        local bindExecEnded = UserInputService.InputEnded:Connect(function(input)
+            if listening then return end
+            if not inputMatches(input) then return end
+
+            local bType = bindData.Type
+            if bType == "On key down" or bType == "Hold" then
+                updateState(false)
+            end
+        end)
+        table.insert(Connections, bindExecEnded)
 
         makePopoverDraggable(BindPopover, function(pos)
             if hasIndicatorUI then
