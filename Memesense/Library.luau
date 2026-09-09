@@ -396,7 +396,23 @@ local function isPosInGui(gui, pos, pad)
         m = Vector2.new(m.X, m.Y)
     end
 
-    return m.X >= (sp.X - ep) and m.X <= (sp.X + s.X + ep) and m.Y >= (sp.Y - ep) and m.Y <= (sp.Y + s.Y + ep)
+    local inRaw = (m.X >= (sp.X - ep) and m.X <= (sp.X + s.X + ep) and m.Y >= (sp.Y - ep) and m.Y <= (sp.Y + s.Y + ep))
+    if inRaw then return true end
+
+    -- Check with GuiInset offset compensation
+    local ok, inset = pcall(function() return GuiService:GetGuiInset() end)
+    if ok and inset and inset.Y ~= 0 then
+        local spOffset = sp + inset
+        if m.X >= (spOffset.X - ep) and m.X <= (spOffset.X + s.X + ep) and m.Y >= (spOffset.Y - ep) and m.Y <= (spOffset.Y + s.Y + ep) then
+            return true
+        end
+        local spOffset2 = sp - inset
+        if m.X >= (spOffset2.X - ep) and m.X <= (spOffset2.X + s.X + ep) and m.Y >= (spOffset2.Y - ep) and m.Y <= (spOffset2.Y + s.Y + ep) then
+            return true
+        end
+    end
+
+    return false
 end
 
 -- Utility to calculate dropdown popover width:
@@ -492,18 +508,22 @@ local function handleModalBlockerClick()
     local mouse = UserInputService:GetMouseLocation()
     for _, item in ipairs(ActivePopups) do
         local frame = (typeof(item) == "table") and item.Frame or item
-        if frame and frame:IsA("GuiObject") and frame.Visible then
-            if isPosInGui(frame, mouse, 6) then
-                return
-            end
-            for _, desc in ipairs(frame:GetDescendants()) do
-                if desc:IsA("GuiObject") and desc.Name == "TypePopover" then
-                    if isPosInGui(desc, mouse, 6) then
-                        return
+        local inFrame = false
+        pcall(function()
+            if frame and frame:IsA("GuiObject") and frame.Visible then
+                if isPosInGui(frame, mouse, 8) then
+                    inFrame = true
+                else
+                    for _, desc in ipairs(frame:GetDescendants()) do
+                        if desc:IsA("GuiObject") and desc.Visible and isPosInGui(desc, mouse, 8) then
+                            inFrame = true
+                            break
+                        end
                     end
                 end
             end
-        end
+        end)
+        if inFrame then return end
     end
     CloseAllPopups()
 end
@@ -3754,13 +3774,10 @@ function Controls:CreateToggle(parent, config)
                 updateTypeOptionColors()
                 updateBindBtn()
                 updatePopoverLayout()
-                task.defer(function()
-                    TypePopover.Visible = false
-                    TypeBottomCover.Visible = false
-                    TypeChevron.Text = "C"
-                end)
+                TypePopover.Visible = false
+                TypeBottomCover.Visible = false
+                TypeChevron.Text = "C"
             end
-            TBtn.MouseButton1Down:Connect(selectType)
             TBtn.MouseButton1Click:Connect(selectType)
         end
 
@@ -3864,11 +3881,12 @@ function Controls:CreateToggle(parent, config)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 if not BindPopover.Visible then return end
                 if listening or (os.clock() - lastPopoverDragTime < 0.2) or (os.clock() - lastTypeSelectTime < 0.35) then return end
-                local pos = input.Position
-                if isPosInGui(BindPopover, pos) then return end
-                if isPosInGui(BindBtn, pos) then return end
-                if TypePopover and TypePopover.Visible and isPosInGui(TypePopover, pos, 6) then return end
-                if ColorPickerModal and ColorPickerModal.Visible and isPosInGui(ColorPickerModal, pos) then return end
+                local mousePos = UserInputService:GetMouseLocation()
+                if isPosInGui(BindPopover, mousePos, 8) then return end
+                if isPosInGui(BindBtn, mousePos, 8) then return end
+                if isPosInGui(TypeDropdown, mousePos, 8) then return end
+                if TypePopover and TypePopover.Visible and isPosInGui(TypePopover, mousePos, 8) then return end
+                if ColorPickerModal and ColorPickerModal.Visible and isPosInGui(ColorPickerModal, mousePos, 8) then return end
                 BindPopover.Visible = false
                 if TypePopover then TypePopover.Visible = false end
                 if TypeBottomCover then TypeBottomCover.Visible = false end
@@ -5289,19 +5307,27 @@ do
             end
             if hasOpenPopup then
                 task.delay(0.1, function()
-                    if draggingSV or draggingHue or draggingAlpha then return end
+                    if draggingSV or draggingHue or draggingAlpha or (os.clock() - lastTypeSelectTime < 0.35) then return end
                     local mousePos = UserInputService:GetMouseLocation()
                     local clickedOnPopup = false
                     for _, item in ipairs(ActivePopups) do
                         local frame = (typeof(item) == "table") and item.Frame or item
                         if frame and frame:IsA("GuiObject") and frame.Visible then
-                            if isPosInGui(frame, mousePos, 6) then
+                            if isPosInGui(frame, mousePos, 8) then
                                 clickedOnPopup = true
                                 break
+                            else
+                                for _, desc in ipairs(frame:GetDescendants()) do
+                                    if desc:IsA("GuiObject") and desc.Visible and isPosInGui(desc, mousePos, 8) then
+                                        clickedOnPopup = true
+                                        break
+                                    end
+                                end
+                                if clickedOnPopup then break end
                             end
                         end
                     end
-                    if not clickedOnPopup and not (os.clock() - lastPopoverDragTime < 0.2) and not (draggingSV or draggingHue or draggingAlpha) then
+                    if not clickedOnPopup and not (os.clock() - lastPopoverDragTime < 0.2) and not (os.clock() - lastTypeSelectTime < 0.35) and not (draggingSV or draggingHue or draggingAlpha) then
                         CloseAllPopups()
                     end
                 end)
