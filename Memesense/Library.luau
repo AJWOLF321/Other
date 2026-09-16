@@ -2800,6 +2800,16 @@ end)
 table.insert(Connections, gtOutsideConn)
 end
 
+local function getParentPath(inst)
+    local path = {}
+    local curr = inst
+    while curr and curr ~= ScreenGui and curr ~= MainWindow and curr ~= game do
+        table.insert(path, 1, curr.Name)
+        curr = curr.Parent
+    end
+    return table.concat(path, "/")
+end
+
 -- Section Header Label (Centered over column)
 function Controls:CreateSectionHeader(parent, title, order)
     local HeaderLabel = Instance.new("TextLabel")
@@ -4974,7 +4984,7 @@ function Controls:CreateMultiDropdown(parent, config)
                     end
                 end
                 updateText()
-                updateMultiOptionColors()
+                buildOptions()
                 if callback then pcall(callback, selected) end
             end
         end
