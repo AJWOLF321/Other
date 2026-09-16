@@ -127,14 +127,24 @@ end
 
 local customAsset = getcustomasset or getsynasset
 local GuiIconsFont = nil
+local Pixel7Font = nil
+local VisualsIconsFont = nil
+local CustomDrawingFont = nil
+local VisualsIconsDrawingFont = nil
+
 local ttfPath = "Memesense/fonts/gui-icons.ttf"
+local pixel7Path = "Memesense/fonts/pixel7.ttf"
+local visualsIconsPath = "Memesense/fonts/visuals-icons.ttf"
 
-if customAsset and isfile and isfile(ttfPath) then
-    local okTtf, ttfAssetId = pcall(customAsset, ttfPath)
+local function loadFontFace(ttfRelativePath, fontName)
+    if not (customAsset and isfile and isfile(ttfRelativePath)) then
+        return nil, nil
+    end
+    local okTtf, ttfAssetId = pcall(customAsset, ttfRelativePath)
+    if not (okTtf and ttfAssetId) then return nil, nil end
 
-    -- Method 1: Roblox Font Family Manifest (Required by modern Roblox engine Font.new)
     local manifest = HttpService:JSONEncode({
-        name = "MemeSenseIcons",
+        name = fontName,
         faces = {
             {
                 name = "Regular",
@@ -145,49 +155,94 @@ if customAsset and isfile and isfile(ttfPath) then
         }
     })
 
-    local jsonPath = "Memesense/fonts/gui-icons.json"
-    local fontManifestPath = "Memesense/fonts/gui-icons.font"
+    local basePath = string.gsub(ttfRelativePath, "%.ttf$", "")
+    local jsonPath = basePath .. ".json"
+    local fontManifestPath = basePath .. ".font"
     pcall(writefile, jsonPath, manifest)
     pcall(writefile, fontManifestPath, manifest)
 
-    -- Try loading from .json
-    local okJsonAsset, jsonAssetId = pcall(customAsset, jsonPath)
-    if okJsonAsset and jsonAssetId then
+    local resFont = nil
+    local okJson, jsonAssetId = pcall(customAsset, jsonPath)
+    if okJson and jsonAssetId then
         local okFont, fontFace = pcall(function()
             return Font.new(jsonAssetId, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
         end)
         if okFont and fontFace then
-            GuiIconsFont = fontFace
+            resFont = fontFace
         end
     end
 
-    -- Try loading from .font if .json didn't work
-    if not GuiIconsFont then
+    if not resFont then
         local okFontAsset, fontAssetId = pcall(customAsset, fontManifestPath)
         if okFontAsset and fontAssetId then
             local okFont, fontFace = pcall(function()
                 return Font.new(fontAssetId, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
             end)
             if okFont and fontFace then
-                GuiIconsFont = fontFace
+                resFont = fontFace
             end
         end
     end
 
-    -- Method 2: Direct raw TTF assetId fallback
-    if not GuiIconsFont and okTtf and ttfAssetId then
+    if not resFont then
         local okDirect, fontFace = pcall(function()
             return Font.new(ttfAssetId, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
         end)
         if okDirect and fontFace then
-            GuiIconsFont = fontFace
+            resFont = fontFace
         end
     end
+
+    return resFont, ttfAssetId
+end
+
+GuiIconsFont = loadFontFace(ttfPath, "MemeSenseIcons")
+Pixel7Font = loadFontFace(pixel7Path, "Pixel7")
+VisualsIconsFont = loadFontFace(visualsIconsPath, "VisualsIcons")
+
+pcall(function()
+    if typeof(Drawing) == "table" and Drawing.Fonts then
+        if typeof(Drawing.RegisterFont) == "function" and isfile and isfile(pixel7Path) then
+            CustomDrawingFont = Drawing.RegisterFont(pixel7Path)
+        elseif typeof(Drawing.Fonts.Register) == "function" and isfile and isfile(pixel7Path) then
+            CustomDrawingFont = Drawing.Fonts.Register(pixel7Path)
+        end
+        if typeof(Drawing.RegisterFont) == "function" and isfile and isfile(visualsIconsPath) then
+            VisualsIconsDrawingFont = Drawing.RegisterFont(visualsIconsPath)
+        elseif typeof(Drawing.Fonts.Register) == "function" and isfile and isfile(visualsIconsPath) then
+            VisualsIconsDrawingFont = Drawing.Fonts.Register(visualsIconsPath)
+        end
+    end
+end)
+
+if not CustomDrawingFont then
+    CustomDrawingFont = Pixel7Font or (Drawing and Drawing.Fonts and Drawing.Fonts.Monospace) or 3
+end
+if not VisualsIconsDrawingFont then
+    VisualsIconsDrawingFont = VisualsIconsFont or (Drawing and Drawing.Fonts and Drawing.Fonts.Monospace) or 3
 end
 
 if not GuiIconsFont then
     GuiIconsFont = Font.fromEnum(Theme.FontMedium)
 end
+if not Pixel7Font then
+    Pixel7Font = Font.fromEnum(Theme.FontMedium)
+end
+if not VisualsIconsFont then
+    VisualsIconsFont = Font.fromEnum(Theme.FontMedium)
+end
+
+Theme.GuiIconsFont = GuiIconsFont
+Theme.Pixel7Font = Pixel7Font
+Theme.VisualsIconsFont = VisualsIconsFont
+Theme.CustomDrawingFont = CustomDrawingFont
+Theme.VisualsIconsDrawingFont = VisualsIconsDrawingFont
+
+Library.GuiIconsFont = GuiIconsFont
+Library.Pixel7Font = Pixel7Font
+Library.VisualsIconsFont = VisualsIconsFont
+Library.CustomDrawingFont = CustomDrawingFont
+Library.VisualsIconsDrawingFont = VisualsIconsDrawingFont
 
 -- Glyphs for tabs
 local TabIconGlyphs = {
@@ -951,6 +1006,7 @@ local chamsOptions = { "Players", "Local player" }
 local legitbotWeaponMode = "All weapons"
 local aimAssistWeaponMode = "All weapons"
 local chamsMode = "Players"
+Library.chamsMode = chamsMode
 
 local function getActiveHeaderModeInfo()
     local curTab = ActiveTab and ActiveTab.Name or "Legitbot"
