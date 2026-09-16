@@ -40,6 +40,7 @@ end)
 
 
 local Connections = {}
+local UIControlRegistry = {}
 
 --[[
     ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -312,45 +313,8 @@ Container.AncestryChanged:Connect(function(_, parent)
     end
 end)
 
--- ============================================================================
--- INSTANCE OBFUSCATION ENGINE
--- Ensures every single UI instance created in CoreGui is obfuscated with
--- random symbol strings identical to base.luau
--- ============================================================================
-local realInstanceNew = Instance.new
-local function createObfuscatedInstance(className, parent)
-    local inst = realInstanceNew(className)
-    pcall(function()
-        inst.Name = GetRandomSymbolString(math.random(14, 20))
-    end)
-    if parent then
-        inst.Parent = parent
-    end
-    return inst
-end
-local Instance = {
-    new = createObfuscatedInstance
-}
+-- Instance creation helper
 
-local function obfuscateInstanceName(inst)
-    if typeof(inst) == "Instance" then
-        pcall(function()
-            inst.Name = GetRandomSymbolString(math.random(14, 20))
-        end)
-    end
-end
-
-local descAddedConn = Container.DescendantAdded:Connect(function(inst)
-    obfuscateInstanceName(inst)
-    task.defer(obfuscateInstanceName, inst)
-end)
-table.insert(Connections, descAddedConn)
-
-local screenDescAddedConn = ScreenGui.DescendantAdded:Connect(function(inst)
-    obfuscateInstanceName(inst)
-    task.defer(obfuscateInstanceName, inst)
-end)
-table.insert(Connections, screenDescAddedConn)
 
 
 -- Utility helpers
@@ -1284,7 +1248,7 @@ SaveBtnFrame.Position = UDim2.new(1, -98, 0.5, -13)
 SaveBtnFrame.BackgroundColor3 = Theme.DropdownBg
 SaveBtnFrame.Parent = HeaderFrame
 createCorner(SaveBtnFrame, 3)
-createStroke(SaveBtnFrame, Theme.ControlBorder, 1)
+SaveBtnFrame.BorderSizePixel = 0
 
 local SaveIcon = Instance.new("TextLabel")
 SaveIcon.Name = "Icon"
@@ -4094,11 +4058,145 @@ function Controls:CreateToggle(parent, config)
         }
     end
 
+    local function getParentPath(inst)
+        local path = {}
+        local curr = inst
+        while curr and curr ~= ScreenGui and curr ~= MainWindow and curr ~= game do
+            table.insert(path, 1, curr.Name)
+            curr = curr.Parent
+        end
+        return table.concat(path, "/")
+    end
+    local ctrlKey = getParentPath(ToggleRow)
+
+    local ctrlObj = {
+        Type = "Toggle",
+        Name = name,
+        Key = ctrlKey,
+        GetValue = function()
+            local res = { State = state }
+            if config.ColorChips then
+                res.ColorChips = {}
+                for i = 1, #config.ColorChips do
+                    local chipBtn = ToggleRow:FindFirstChild("Chip_" .. i)
+                    if chipBtn then
+                        res.ColorChips[i] = { Color = chipBtn.BackgroundColor3, Alpha = 1 }
+                    end
+                end
+            elseif config.ColorChip then
+                res.ColorChip = {
+                    Color = (Chip and Chip.BackgroundColor3) or Color3.fromRGB(255, 255, 255),
+                    Alpha = 1
+                }
+            end
+            if config.Dropdown then
+                res.Dropdown = dSel
+            end
+            if keybindObj and bindData then
+                res.Keybind = bindData
+            end
+            return res
+        end,
+        SetValue = function(val)
+            if typeof(val) == "boolean" then
+                updateState(val)
+            elseif typeof(val) == "table" then
+                if val.State ~= nil then
+                    updateState(val.State == true)
+                end
+                if val.Color and config.ColorChip and Chip then
+                    local col = val.Color
+                    if typeof(col) == "Color3" then
+                        Chip.BackgroundColor3 = col
+                        if config.ColorCallback then
+                            pcall(config.ColorCallback, col, val.Alpha or 1)
+                        end
+                    end
+                elseif val.ColorChip and config.ColorChip and Chip then
+                    local col = (typeof(val.ColorChip) == "table" and val.ColorChip.Color) or val.ColorChip
+                    if typeof(col) == "Color3" then
+                        Chip.BackgroundColor3 = col
+                        if config.ColorCallback then
+                            pcall(config.ColorCallback, col, (typeof(val.ColorChip) == "table" and val.ColorChip.Alpha) or 1)
+                        end
+                    end
+                end
+                if val.ColorChips and config.ColorChips then
+                    for cIdx, cVal in pairs(val.ColorChips) do
+                        local chipBtn = ToggleRow:FindFirstChild("Chip_" .. cIdx)
+                        local col = (typeof(cVal) == "table" and cVal.Color) or cVal
+                        if chipBtn and typeof(col) == "Color3" then
+                            chipBtn.BackgroundColor3 = col
+                            if config.ColorCallback then
+                                pcall(config.ColorCallback, tonumber(cIdx) or 1, col, (typeof(cVal) == "table" and cVal.Alpha) or 1)
+                            end
+                        end
+                    end
+                end
+                if val.Dropdown and config.Dropdown then
+                    dSel = val.Dropdown
+                    if DdLabel and getDisplayText then
+                        DdLabel.Text = getDisplayText()
+                    end
+                    if updateOptionColors then updateOptionColors() end
+                    if config.Dropdown.Callback then
+                        pcall(config.Dropdown.Callback, dSel)
+                    end
+                end
+                if val.Keybind and typeof(val.Keybind) == "table" and bindData then
+                    if val.Keybind.Key ~= nil then
+                        local k = val.Keybind.Key
+                        if typeof(k) == "string" then
+                            local ok, enumItem = pcall(function() return Enum.KeyCode[k] end)
+                            bindData.Key = ok and enumItem or k
+                        else
+                            bindData.Key = k
+                        end
+                    end
+                    if val.Keybind.Type then bindData.Type = val.Keybind.Type end
+                    if val.Keybind.Indicator ~= nil then bindData.Indicator = (val.Keybind.Indicator == true) end
+                    if val.Keybind.IndicatorText ~= nil then bindData.IndicatorText = tostring(val.Keybind.IndicatorText) end
+                    if val.Keybind.ColorActive then bindData.ColorActive = val.Keybind.ColorActive end
+                    if val.Keybind.ColorInactive then bindData.ColorInactive = val.Keybind.ColorInactive end
+                    if updateBindBtn then updateBindBtn() end
+                    if updateTypeOptionColors then updateTypeOptionColors() end
+                    if KeyBtn and getKeyDisplayName then
+                        KeyBtn.Text = getKeyDisplayName(bindData.Key)
+                    end
+                    if TypeText then
+                        TypeText.Text = (bindData.Type == "Always on" and "Always On") or bindData.Type or "Always On"
+                    end
+                    if IndCheck then
+                        IndCheck.BackgroundColor3 = bindData.Indicator and Theme.CheckboxChecked or Theme.CheckboxOff
+                    end
+                    if IndCheckIcon then
+                        IndCheckIcon.Visible = (bindData.Indicator == true)
+                    end
+                    if IndTextBox then
+                        IndTextBox.Text = bindData.IndicatorText or ""
+                    end
+                end
+            end
+        end
+    }
+
+    UIControlRegistry[ctrlKey] = ctrlObj
+    if not UIControlRegistry[name] then UIControlRegistry[name] = ctrlObj end
+    local lowerName = string.lower(name)
+    if not UIControlRegistry[lowerName] then UIControlRegistry[lowerName] = ctrlObj end
+    local pathSegments = string.split(ctrlKey, "/")
+    if #pathSegments >= 2 then
+        local shortKey = pathSegments[#pathSegments - 1] .. "/" .. pathSegments[#pathSegments]
+        if not UIControlRegistry[shortKey] then UIControlRegistry[shortKey] = ctrlObj end
+    end
+
     return {
         Set = updateState,
         Get = function() return state end,
         Keybind = keybindObj,
-        SetEnabled = setEnabled
+        SetEnabled = setEnabled,
+        GetValue = ctrlObj.GetValue,
+        SetValue = ctrlObj.SetValue
     }
 end
 
@@ -4241,10 +4339,47 @@ function Controls:CreateSlider(parent, config)
         end
     end)
 
+    local function getParentPath(inst)
+        local path = {}
+        local curr = inst
+        while curr and curr ~= ScreenGui and curr ~= MainWindow and curr ~= game do
+            table.insert(path, 1, curr.Name)
+            curr = curr.Parent
+        end
+        return table.concat(path, "/")
+    end
+    local ctrlKey = getParentPath(SliderContainer)
+
+    local ctrlObj = {
+        Type = "Slider",
+        Name = name,
+        Key = ctrlKey,
+        GetValue = function() return currentValue end,
+        SetValue = function(val)
+            if typeof(val) == "number" then
+                setSlider(val)
+            elseif typeof(val) == "table" and val.Value ~= nil then
+                setSlider(tonumber(val.Value) or default)
+            end
+        end
+    }
+
+    UIControlRegistry[ctrlKey] = ctrlObj
+    if not UIControlRegistry[name] then UIControlRegistry[name] = ctrlObj end
+    local lowerName = string.lower(name)
+    if not UIControlRegistry[lowerName] then UIControlRegistry[lowerName] = ctrlObj end
+    local pathSegments = string.split(ctrlKey, "/")
+    if #pathSegments >= 2 then
+        local shortKey = pathSegments[#pathSegments - 1] .. "/" .. pathSegments[#pathSegments]
+        if not UIControlRegistry[shortKey] then UIControlRegistry[shortKey] = ctrlObj end
+    end
+
     return {
         Set = setSlider,
         Get = function() return currentValue end,
-        SetEnabled = setEnabled
+        SetEnabled = setEnabled,
+        GetValue = ctrlObj.GetValue,
+        SetValue = ctrlObj.SetValue
     }
 end
 
@@ -4506,9 +4641,46 @@ function Controls:CreateDropdown(parent, config)
         end
     end)
 
+    local function getParentPath(inst)
+        local path = {}
+        local curr = inst
+        while curr and curr ~= ScreenGui and curr ~= MainWindow and curr ~= game do
+            table.insert(path, 1, curr.Name)
+            curr = curr.Parent
+        end
+        return table.concat(path, "/")
+    end
+    local ctrlKey = getParentPath(DropdownContainer)
+
+    local ctrlObj = {
+        Type = "Dropdown",
+        Name = name,
+        Key = ctrlKey,
+        GetValue = function() return current end,
+        SetValue = function(val)
+            if typeof(val) == "string" then
+                selectOption(val)
+            elseif typeof(val) == "table" and val.Value ~= nil then
+                selectOption(tostring(val.Value))
+            end
+        end
+    }
+
+    UIControlRegistry[ctrlKey] = ctrlObj
+    if not UIControlRegistry[name] then UIControlRegistry[name] = ctrlObj end
+    local lowerName = string.lower(name)
+    if not UIControlRegistry[lowerName] then UIControlRegistry[lowerName] = ctrlObj end
+    local pathSegments = string.split(ctrlKey, "/")
+    if #pathSegments >= 2 then
+        local shortKey = pathSegments[#pathSegments - 1] .. "/" .. pathSegments[#pathSegments]
+        if not UIControlRegistry[shortKey] then UIControlRegistry[shortKey] = ctrlObj end
+    end
+
     return {
         Set = selectOption,
-        Get = function() return current end
+        Get = function() return current end,
+        GetValue = ctrlObj.GetValue,
+        SetValue = ctrlObj.SetValue
     }
 end
 
@@ -4560,7 +4732,7 @@ function Controls:CreateMultiDropdown(parent, config)
     SelectedLabel.Size = UDim2.new(1, -22, 1, 0)
     SelectedLabel.Position = UDim2.new(0, 8, 0, 0)
     SelectedLabel.BackgroundTransparency = 1
-    SelectedLabel.Text = "None"
+    SelectedLabel.Text = "..."
     SelectedLabel.ClipsDescendants = true
     SelectedLabel.TextColor3 = Theme.TextActive
     SelectedLabel.TextSize = 12
@@ -4696,9 +4868,14 @@ function Controls:CreateMultiDropdown(parent, config)
                 table.insert(list, opt)
             end
         end
-        local res = (#list == 0) and "None" or table.concat(list, ", ")
-        SelectedLabel.Text = res
-        PopHeaderLabel.Text = res
+        if #list == 0 then
+            SelectedLabel.Text = "..."
+        elseif #list == 1 then
+            SelectedLabel.Text = list[1]
+        else
+            SelectedLabel.Text = table.concat(list, ", ")
+        end
+        PopHeaderLabel.Text = SelectedLabel.Text
     end
     updateText()
 
@@ -4780,8 +4957,43 @@ function Controls:CreateMultiDropdown(parent, config)
         end
     end)
 
+    local multiCtrlKey = getParentPath(DropdownContainer)
+    local multiCtrlObj = {
+        Type = "MultiDropdown",
+        Name = name,
+        Key = multiCtrlKey,
+        GetValue = function() return selected end,
+        SetValue = function(val)
+            if typeof(val) == "table" then
+                table.clear(selected)
+                for k, v in pairs(val) do
+                    if typeof(k) == "number" and typeof(v) == "string" then
+                        selected[v] = true
+                    elseif v == true then
+                        selected[k] = true
+                    end
+                end
+                updateText()
+                updateMultiOptionColors()
+                if callback then pcall(callback, selected) end
+            end
+        end
+    }
+
+    UIControlRegistry[multiCtrlKey] = multiCtrlObj
+    if not UIControlRegistry[name] then UIControlRegistry[name] = multiCtrlObj end
+    local lowerName = string.lower(name)
+    if not UIControlRegistry[lowerName] then UIControlRegistry[lowerName] = multiCtrlObj end
+    local pathSegments = string.split(multiCtrlKey, "/")
+    if #pathSegments >= 2 then
+        local shortKey = pathSegments[#pathSegments - 1] .. "/" .. pathSegments[#pathSegments]
+        if not UIControlRegistry[shortKey] then UIControlRegistry[shortKey] = multiCtrlObj end
+    end
+
     return {
-        Get = function() return selected end
+        Get = function() return selected end,
+        GetValue = multiCtrlObj.GetValue,
+        SetValue = multiCtrlObj.SetValue
     }
 end
 
@@ -5295,20 +5507,29 @@ local Library = {
     ActivePopups = ActivePopups,
     TabIconGlyphs = TabIconGlyphs,
     CommonIcons = CommonIcons,
-    GuiIconsFont = GuiIconsFont
+    GuiIconsFont = GuiIconsFont,
+    UIControlRegistry = UIControlRegistry,
+    Connections = Connections,
+    ContentArea = ContentArea,
+    SidebarFrame = SidebarFrame,
+    HeaderFrame = HeaderFrame,
+    HeaderCenterGroup = HeaderCenterGroup,
+    MasterSwitchFrame = MasterSwitchFrame,
+    WeaponDropdownFrame = WeaponDropdownFrame,
+    SubWeaponDropdownFrame = SubWeaponDropdownFrame,
+    tabMasterStates = tabMasterStates,
+    updateMasterSwitchUI = updateMasterSwitchUI,
+    createCorner = createCorner,
+    createStroke = createStroke,
+    isPosInGui = isPosInGui,
+    getRealMousePos = getRealMousePos,
+    getScreenPos = getScreenPos,
+    easeOutQuad = easeOutQuad,
+    makePopoverDraggable = makePopoverDraggable,
+    CreateTab = function(self, name, orderIndex) return CreateTab(name, orderIndex) end,
+    SelectTab = function(self, name) return SelectTab(name) end,
+    CloseAllPopups = function(self, preservePredicate) return CloseAllPopups(preservePredicate) end
 }
-
-function Library:CreateTab(name, orderIndex)
-    return CreateTab(name, orderIndex)
-end
-
-function Library:SelectTab(name)
-    return SelectTab(name)
-end
-
-function Library:CloseAllPopups(preservePredicate)
-    return CloseAllPopups(preservePredicate)
-end
 
 function Library:SetTabGlyphs(glyphsTable)
     for tName, glyph in pairs(glyphsTable) do
@@ -5552,28 +5773,12 @@ do
         end)
     end
 
-    -- Final sweep: ensure every instance in the hierarchy has an obfuscated symbol name
-    pcall(function()
-        for _, desc in ipairs(Container:GetDescendants()) do
-            pcall(function()
-                desc.Name = GetRandomSymbolString(math.random(14, 20))
-            end)
-        end
-    end)
-
     function Library:Toggle(val)
         local target = (val ~= nil) and val or (not MenuVisible)
         setMenuVisible(target)
     end
 
     function Library:Ready()
-        pcall(function()
-            for _, desc in ipairs(Container:GetDescendants()) do
-                pcall(function()
-                    desc.Name = GetRandomSymbolString(math.random(14, 20))
-                end)
-            end
-        end)
         if not ActiveTab and Tabs["Aim Assist"] then
             SelectTab("Aim Assist")
         end
@@ -5584,4 +5789,3 @@ end
 
 getgenv().MemeSenseLibrary = Library
 return Library
-
