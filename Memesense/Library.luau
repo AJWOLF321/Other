@@ -5536,6 +5536,7 @@ local Library = {
     getScreenPos = getScreenPos,
     easeOutQuad = easeOutQuad,
     makePopoverDraggable = makePopoverDraggable,
+    ColorPickerModal = ColorPickerModal,
     CreateTab = function(self, name, orderIndex) return CreateTab(name, orderIndex) end,
     SelectTab = function(self, name) return SelectTab(name) end,
     CloseAllPopups = function(self, preservePredicate) return CloseAllPopups(preservePredicate) end
