@@ -292,7 +292,7 @@ local Container = GetSafeContainer()
 getgenv().MemeSenseContainer = Container
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = GetRandomSymbolString(16)
+ScreenGui.Name = ""
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder = 10000
@@ -317,7 +317,26 @@ end)
 
 
 
--- Utility helpers
+local function ensureColor3(c)
+    if typeof(c) == "Color3" then return c end
+    if typeof(c) == "table" then
+        if c.__isColor then return Color3.new(c.r or 1, c.g or 1, c.b or 1) end
+        if c.R and c.G and c.B then
+            if c.R > 1 or c.G > 1 or c.B > 1 then return Color3.fromRGB(c.R, c.G, c.B) end
+            return Color3.new(c.R, c.G, c.B)
+        end
+        if c.r and c.g and c.b then
+            if c.r > 1 or c.g > 1 or c.b > 1 then return Color3.fromRGB(c.r, c.g, c.b) end
+            return Color3.new(c.r, c.g, c.b)
+        end
+        if c[1] and c[2] and c[3] then
+            if c[1] > 1 or c[2] > 1 or c[3] > 1 then return Color3.fromRGB(c[1], c[2], c[3]) end
+            return Color3.new(c[1], c[2], c[3])
+        end
+    end
+    return Color3.fromRGB(255, 255, 255)
+end
+
 local function createCorner(parent, radius)
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, radius or 1)
@@ -1618,7 +1637,7 @@ local Controls = {}
 
 do
 ColorPickerModal = Instance.new("Frame")
-ColorPickerModal.Name = "MemeSense_ColorPicker"
+ColorPickerModal.Name = ""
 ColorPickerModal.Size = UDim2.new(0, 316, 0, 266)
 ColorPickerModal.BackgroundColor3 = Color3.fromRGB(19, 20, 24)
 ColorPickerModal.BorderSizePixel = 0
@@ -2360,11 +2379,215 @@ end)
 table.insert(Connections, svOutsideConn)
 end
 
---[[
-    ═══════════════════════════════════════════════════════════════════════════
-                         GRENADE TRACERS POPOVERS
-    ═══════════════════════════════════════════════════════════════════════════
-]]
+do
+local LightingPopover = Instance.new("Frame")
+LightingPopover.Name = ""
+LightingPopover.Size = UDim2.new(0, 190, 0, 126)
+LightingPopover.BackgroundColor3 = Color3.fromRGB(19, 20, 24)
+LightingPopover.BorderSizePixel = 0
+LightingPopover.Visible = false
+LightingPopover.ZIndex = 520
+LightingPopover.Parent = PopupsLayer
+createCorner(LightingPopover, 2)
+
+local lpPad = Instance.new("UIPadding")
+lpPad.PaddingTop = UDim.new(0, 8)
+lpPad.PaddingBottom = UDim.new(0, 8)
+lpPad.PaddingLeft = UDim.new(0, 10)
+lpPad.PaddingRight = UDim.new(0, 10)
+lpPad.Parent = LightingPopover
+
+local function createChannelRow(channelName, yOffset)
+    local row = Instance.new("Frame")
+    row.Name = ""
+    row.Size = UDim2.new(1, 0, 0, 28)
+    row.Position = UDim2.new(0, 0, 0, yOffset)
+    row.BackgroundTransparency = 1
+    row.Parent = LightingPopover
+
+    local header = Instance.new("Frame")
+    header.Name = ""
+    header.Size = UDim2.new(1, 0, 0, 16)
+    header.BackgroundTransparency = 1
+    header.Parent = row
+
+    local label = Instance.new("TextLabel")
+    label.Name = ""
+    label.Size = UDim2.new(0.6, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = channelName
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 13
+    label.Font = Theme.FontBold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = header
+
+    local val = Instance.new("TextLabel")
+    val.Name = ""
+    val.Size = UDim2.new(0.4, 0, 1, 0)
+    val.Position = UDim2.new(0.6, 0, 0, 0)
+    val.BackgroundTransparency = 1
+    val.Text = "10.000"
+    val.TextColor3 = Color3.fromRGB(255, 255, 255)
+    val.TextSize = 13
+    val.Font = Theme.FontBold
+    val.TextXAlignment = Enum.TextXAlignment.Right
+    val.Parent = header
+
+    local track = Instance.new("TextButton")
+    track.Name = ""
+    track.Size = UDim2.new(1, 0, 0, 4)
+    track.Position = UDim2.new(0, 0, 0, 20)
+    track.BackgroundColor3 = Color3.fromRGB(38, 40, 48)
+    track.BorderSizePixel = 0
+    track.AutoButtonColor = false
+    track.Text = ""
+    track.Parent = row
+    createCorner(track, 2)
+
+    local fill = Instance.new("Frame")
+    fill.Name = ""
+    fill.Size = UDim2.new(1, 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(160, 165, 180)
+    fill.BorderSizePixel = 0
+    fill.Parent = track
+    createCorner(fill, 2)
+
+    return track, fill, val
+end
+
+local redTrack, redFill, redVal = createChannelRow("Red", 0)
+local greenTrack, greenFill, greenVal = createChannelRow("Green", 38)
+local blueTrack, blueFill, blueVal = createChannelRow("Blue", 76)
+
+local activeLpAnchor = nil
+local activeLpCallback = nil
+local currentLpR = 10.000
+local currentLpG = 10.000
+local currentLpB = 10.000
+local draggingLpChannel = nil
+
+local function setLpVal(channel, val, skipCallback)
+    local clamped = math.clamp(val, 0, 10)
+    if channel == "Red" then
+        currentLpR = clamped
+        redVal.Text = string.format("%.3f", currentLpR)
+        redFill.Size = UDim2.new(math.clamp(currentLpR / 10, 0, 1), 0, 1, 0)
+    elseif channel == "Green" then
+        currentLpG = clamped
+        greenVal.Text = string.format("%.3f", currentLpG)
+        greenFill.Size = UDim2.new(math.clamp(currentLpG / 10, 0, 1), 0, 1, 0)
+    elseif channel == "Blue" then
+        currentLpB = clamped
+        blueVal.Text = string.format("%.3f", currentLpB)
+        blueFill.Size = UDim2.new(math.clamp(currentLpB / 10, 0, 1), 0, 1, 0)
+    end
+    if not skipCallback and activeLpCallback then
+        pcall(activeLpCallback, currentLpR, currentLpG, currentLpB)
+    end
+end
+
+local function updateLpFromMouse(channel, track, input)
+    local tPos = track.AbsolutePosition
+    local tWidth = track.AbsoluteSize.X
+    if tWidth <= 0 then return end
+    local frac = math.clamp((input.Position.X - tPos.X) / tWidth, 0, 1)
+    setLpVal(channel, frac * 10)
+end
+
+redTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingLpChannel = "Red"
+        updateLpFromMouse("Red", redTrack, input)
+    end
+end)
+
+greenTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingLpChannel = "Green"
+        updateLpFromMouse("Green", greenTrack, input)
+    end
+end)
+
+blueTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingLpChannel = "Blue"
+        updateLpFromMouse("Blue", blueTrack, input)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingLpChannel and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if draggingLpChannel == "Red" then
+            updateLpFromMouse("Red", redTrack, input)
+        elseif draggingLpChannel == "Green" then
+            updateLpFromMouse("Green", greenTrack, input)
+        elseif draggingLpChannel == "Blue" then
+            updateLpFromMouse("Blue", blueTrack, input)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingLpChannel = nil
+    end
+end)
+
+makePopoverDraggable(LightingPopover, function(pos)
+    return isPosInGui(redTrack, pos, 4) or isPosInGui(greenTrack, pos, 4) or isPosInGui(blueTrack, pos, 4) or (draggingLpChannel ~= nil)
+end)
+
+function Controls:OpenLightingPopover(anchorBtn, curR, curG, curB, callback)
+    if LightingPopover.Visible and activeLpAnchor == anchorBtn then
+        LightingPopover.Visible = false
+        activeLpAnchor = nil
+        return
+    end
+    CloseAllPopups()
+    activeLpAnchor = anchorBtn
+    activeLpCallback = callback
+    setLpVal("Red", curR or 10.000, true)
+    setLpVal("Green", curG or 10.000, true)
+    setLpVal("Blue", curB or 10.000, true)
+
+    local screenPos = getScreenPos(anchorBtn)
+    local absSize = anchorBtn.AbsoluteSize
+    local posX = screenPos.X - 160
+    local posY = screenPos.Y + absSize.Y + 4
+    local cam = workspace.CurrentCamera
+    local viewSize = cam and cam.ViewportSize or Vector2.new(1920, 1080)
+    posX = math.clamp(posX, 8, viewSize.X - 195)
+    posY = math.clamp(posY, 8, viewSize.Y - 135)
+
+    LightingPopover.Position = UDim2.new(0, posX, 0, posY)
+    LightingPopover.Visible = true
+end
+
+table.insert(ActivePopups, {
+    Frame = LightingPopover,
+    OnClose = function()
+        activeLpAnchor = nil
+    end
+})
+
+local lpOutsideConn = UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if not LightingPopover.Visible then return end
+        if (draggingLpChannel ~= nil) or (os.clock() - lastPopoverDragTime < 0.2) then return end
+        local pos = input.Position
+        if isPosInGui(LightingPopover, pos) then
+            return
+        end
+        if activeLpAnchor and isPosInGui(activeLpAnchor, pos) then
+            return
+        end
+        LightingPopover.Visible = false
+        activeLpAnchor = nil
+    end
+end)
+table.insert(Connections, lpOutsideConn)
+end
 
 do
 local GrenadeTypes = {
@@ -4114,31 +4337,25 @@ function Controls:CreateToggle(parent, config)
                 if val.State ~= nil then
                     updateState(val.State == true)
                 end
-                if val.Color and config.ColorChip and Chip then
-                    local col = val.Color
-                    if typeof(col) == "Color3" then
-                        Chip.BackgroundColor3 = col
-                        if config.ColorCallback then
-                            pcall(config.ColorCallback, col, val.Alpha or 1)
-                        end
-                    end
-                elseif val.ColorChip and config.ColorChip and Chip then
-                    local col = (typeof(val.ColorChip) == "table" and val.ColorChip.Color) or val.ColorChip
-                    if typeof(col) == "Color3" then
-                        Chip.BackgroundColor3 = col
-                        if config.ColorCallback then
-                            pcall(config.ColorCallback, col, (typeof(val.ColorChip) == "table" and val.ColorChip.Alpha) or 1)
-                        end
+                if (val.Color or val.ColorChip) and config.ColorChip and Chip then
+                    local rawCol = (val.ColorChip and typeof(val.ColorChip) == "table" and val.ColorChip.Color) or val.Color or val.ColorChip
+                    local rawAlpha = (val.ColorChip and typeof(val.ColorChip) == "table" and val.ColorChip.Alpha) or val.Alpha or 1
+                    local col = ensureColor3(rawCol)
+                    Chip.BackgroundColor3 = col
+                    if config.ColorCallback then
+                        pcall(config.ColorCallback, col, rawAlpha)
                     end
                 end
                 if val.ColorChips and config.ColorChips then
                     for cIdx, cVal in pairs(val.ColorChips) do
                         local chipBtn = ToggleRow:FindFirstChild("Chip_" .. cIdx)
-                        local col = (typeof(cVal) == "table" and cVal.Color) or cVal
-                        if chipBtn and typeof(col) == "Color3" then
+                        local rawCol = (typeof(cVal) == "table" and cVal.Color) or cVal
+                        local rawAlpha = (typeof(cVal) == "table" and cVal.Alpha) or 1
+                        local col = ensureColor3(rawCol)
+                        if chipBtn then
                             chipBtn.BackgroundColor3 = col
                             if config.ColorCallback then
-                                pcall(config.ColorCallback, tonumber(cIdx) or 1, col, (typeof(cVal) == "table" and cVal.Alpha) or 1)
+                                pcall(config.ColorCallback, tonumber(cIdx) or 1, col, rawAlpha)
                             end
                         end
                     end
