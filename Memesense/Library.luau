@@ -957,8 +957,12 @@ local function getActiveHeaderModeInfo()
     if curTab == "Chams" then
         return chamsOptions, chamsMode, function(opt)
             chamsMode = opt
+            Library.chamsMode = opt
             WeaponBtn.Text = "  " .. opt
             if SubWeaponDropdownFrame then SubWeaponDropdownFrame.Visible = false end
+            if Library.OnHeaderDropdownChanged then
+                pcall(Library.OnHeaderDropdownChanged, curTab, opt)
+            end
         end
     elseif curTab == "Aim Assist" then
         return weaponOptions, aimAssistWeaponMode, function(opt)
@@ -967,6 +971,9 @@ local function getActiveHeaderModeInfo()
             if SubWeaponDropdownFrame then
                 SubWeaponDropdownFrame.Visible = (opt ~= "All weapons")
             end
+            if Library.OnHeaderDropdownChanged then
+                pcall(Library.OnHeaderDropdownChanged, curTab, opt)
+            end
         end
     else
         return weaponOptions, legitbotWeaponMode, function(opt)
@@ -974,6 +981,9 @@ local function getActiveHeaderModeInfo()
             WeaponBtn.Text = "  " .. opt
             if SubWeaponDropdownFrame then
                 SubWeaponDropdownFrame.Visible = (opt ~= "All weapons")
+            end
+            if Library.OnHeaderDropdownChanged then
+                pcall(Library.OnHeaderDropdownChanged, curTab, opt)
             end
         end
     end
@@ -1425,6 +1435,9 @@ local function SelectTab(tabName)
                 WeaponBtn.Text = "  " .. chamsMode
                 SubWeaponDropdownFrame.Visible = false
                 buildWeaponOptions()
+                if Library.OnHeaderDropdownChanged then
+                    pcall(Library.OnHeaderDropdownChanged, "Chams", chamsMode)
+                end
             elseif tabName == "Items" then
                 WeaponDropdownFrame.Visible = false
                 SubWeaponDropdownFrame.Visible = false
@@ -1645,6 +1658,7 @@ ColorPickerModal.Visible = false
 ColorPickerModal.ZIndex = 650
 ColorPickerModal.Parent = PopupsLayer
 createCorner(ColorPickerModal, 2)
+Library.ColorPickerModal = ColorPickerModal
 
 local ColorPickerDismiss = Instance.new("TextButton")
 ColorPickerDismiss.Name = "ColorPickerDismiss"
@@ -2341,14 +2355,18 @@ function Controls:OpenVolumePopover(anchorBtn, currentVal, callback)
     activeSvCallback = callback
     setSvNum(currentVal or 5.000)
 
-    local screenPos = getScreenPos(anchorBtn)
-    local absSize = anchorBtn.AbsoluteSize
-    local posX = screenPos.X - 160
-    local posY = screenPos.Y + absSize.Y + 4
+    local mousePos = UserInputService:GetMouseLocation()
+    local posX = mousePos.X + 8
+    local posY = mousePos.Y - 4
     local cam = workspace.CurrentCamera
     local viewSize = cam and cam.ViewportSize or Vector2.new(1920, 1080)
-    posX = math.clamp(posX, 8, viewSize.X - 195)
-    posY = math.clamp(posY, 8, viewSize.Y - 55)
+    if posX + 195 > viewSize.X - 8 then
+        posX = math.max(8, viewSize.X - 195 - 8)
+    end
+    if posY + 55 > viewSize.Y - 8 then
+        posY = math.max(8, viewSize.Y - 55 - 8)
+    end
+    if posY < 8 then posY = 8 end
 
     SoundVolumePopover.Position = UDim2.new(0, posX, 0, posY)
     SoundVolumePopover.Visible = true
@@ -2551,14 +2569,18 @@ function Controls:OpenLightingPopover(anchorBtn, curR, curG, curB, callback)
     setLpVal("Green", curG or 10.000, true)
     setLpVal("Blue", curB or 10.000, true)
 
-    local screenPos = getScreenPos(anchorBtn)
-    local absSize = anchorBtn.AbsoluteSize
-    local posX = screenPos.X - 160
-    local posY = screenPos.Y + absSize.Y + 4
+    local mousePos = UserInputService:GetMouseLocation()
+    local posX = mousePos.X + 8
+    local posY = mousePos.Y - 4
     local cam = workspace.CurrentCamera
     local viewSize = cam and cam.ViewportSize or Vector2.new(1920, 1080)
-    posX = math.clamp(posX, 8, viewSize.X - 195)
-    posY = math.clamp(posY, 8, viewSize.Y - 135)
+    if posX + 195 > viewSize.X - 8 then
+        posX = math.max(8, viewSize.X - 195 - 8)
+    end
+    if posY + 135 > viewSize.Y - 8 then
+        posY = math.max(8, viewSize.Y - 135 - 8)
+    end
+    if posY < 8 then posY = 8 end
 
     LightingPopover.Position = UDim2.new(0, posX, 0, posY)
     LightingPopover.Visible = true
